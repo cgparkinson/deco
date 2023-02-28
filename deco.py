@@ -214,7 +214,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
         plt.plot(times, compartment_ceiling, label=str(buhlmann.compartments[i].half_time_min) + 'min')
     plt.xlabel('time (min)')
     plt.ylabel('depth (m)')
-    plt.title('Buhlmann ZHL-16C calculated ceilings by compartment\nDive is {}'.format('permissible' if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)))
+    plt.title('Naive (GF 100/100) Buhlmann ZHL-16C ceilings by compartment\nDive is {} [DO NOT TRUST THIS PLANNER!]'.format('permissible' if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)))
 
     # Put a legend to the right of the current axis
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
