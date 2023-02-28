@@ -124,13 +124,30 @@ class BuhlmannCompartmentState:
         # this is the main algo
         self.ppn2 = prev_ppn2 + (inhaled_ppn2 - prev_ppn2) * (1 - 2 ** (-(time_spent / 60) / compartment.half_time_min))
 
-    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope):
-        # surfacing_m_value_ppn2 = (surfacing_m_value/10 - 1) * NITROGEN
-        equiv_depth = (ppn2 / NITROGEN - 1) * 10
-        if equiv_depth < surfacing_m_value:
+    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope, gf=100):
+        gf_prop = gf/100
+        equiv_depth = (ppn2 / NITROGEN - 1) * 10  # depth at which you would be in equilibrium. this is the y-axis
+        adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
+
+        """
+        line for m-value is:
+        equiv_depth = slope * depth + surfacing_m_value
+        adjusted, this is
+        equiv_depth = gf_slope * depth + gf_surfacing_m_value
+
+        given equiv_depth, need depth
+        depth = (equiv_depth - gf_surfacing_m_value)/gf_slope
+
+        adjusted slope is the weighted average of 1 and original slope, gf=1 gives original slope
+        adjusted surfacing m_value is ??? weighted average of 0  and original surfacing m_value, gf=1 gives original
+        # TODO redo all the maths here one more time!
+        """
+
+        ceiling = (equiv_depth - surfacing_m_value*gf_prop) / adjusted_m_value_slope
+        if ceiling<0:
             return 0
         else:
-            return (equiv_depth - surfacing_m_value) / m_value_slope  # TODO is it times or divide? times is more conservative
+            return ceiling
 
     def __repr__(self) -> str:
         return "halftime is " + str(self.compartment) + " ppN2 is " + str(self.ppn2)
@@ -165,6 +182,7 @@ class BuhlmannState(Sequence):
 class Buhlmann_Z16C(DiveAlgorithm):
     def __init__(self) -> None:
         # TODO number needs to be sequential and I hate this
+        # TODO confirm if these are correct in any way
         self.compartments = [
             BuhlmannCompartment(number=0,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
             BuhlmannCompartment(number=1,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
