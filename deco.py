@@ -125,8 +125,10 @@ class BuhlmannCompartmentState:
         self.ppn2 = prev_ppn2 + (inhaled_ppn2 - prev_ppn2) * (1 - 2 ** (-(time_spent / 60) / compartment.half_time_min))
 
     def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope, gf=100):
+        # TODO stare carefully at this maths as this whole section makes NO sense
+        surfacing_m_value_bar = (surfacing_m_value/10 - 1) * NITROGEN  # trying with the idea that the m-values have surface = 10msw
         gf_prop = gf/100
-        equiv_depth = (ppn2 / NITROGEN - 1) * 10  # depth at which you would be in equilibrium. this is the y-axis
+        equiv_abs_pressure = ppn2  # depth at which you would be in equilibrium. this is the y-axis
         adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
 
         """
@@ -140,10 +142,10 @@ class BuhlmannCompartmentState:
 
         adjusted slope is the weighted average of 1 and original slope, gf=1 gives original slope
         adjusted surfacing m_value is ??? weighted average of 0  and original surfacing m_value, gf=1 gives original
-        # TODO redo all the maths here one more time!
         """
 
-        ceiling = (equiv_depth - surfacing_m_value*gf_prop) / adjusted_m_value_slope
+        ceiling_bar = (equiv_abs_pressure - (surfacing_m_value_bar)*gf_prop) / adjusted_m_value_slope
+        ceiling = ceiling_bar*10-10
         if ceiling<0:
             return 0
         else:
@@ -182,7 +184,7 @@ class BuhlmannState(Sequence):
 class Buhlmann_Z16C(DiveAlgorithm):
     def __init__(self) -> None:
         # TODO number needs to be sequential and I hate this
-        # TODO confirm if these are correct in any way
+        # https://www.shearwater.com/wp-content/uploads/2019/05/understanding_m-values.pdf
         self.compartments = [
             BuhlmannCompartment(number=0,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
             BuhlmannCompartment(number=1,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
@@ -240,14 +242,22 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
 
     plt.savefig('deco.png')
 
-dive_checkpoints = [
-    DiveProfileCheckpoint(time=0, depth=0),
-    DiveProfileCheckpoint(time=60, depth=35),
-    DiveProfileCheckpoint(time=60*27, depth=35),
-    DiveProfileCheckpoint(time=60*(30 + 2), depth=5),
-    DiveProfileCheckpoint(time=60*(30 + 2 + 3), depth=5),
-    DiveProfileCheckpoint(time=60*(30 + 2 + 3 + 1), depth=0)
-    ]
+def lazy_make_dive_checkpoints(l):
+    checkpoints = []
+    t = 0
+    for i in l:
+        checkpoints.append(DiveProfileCheckpoint(time=i[0]*60+t, depth=i[1]))
+        t += i[0]*60
+    return checkpoints
+
+dive_checkpoints = lazy_make_dive_checkpoints([
+    (0,0),
+    (1,35),
+    (30,35),
+    (3,5),
+    (3,5),
+    (1,0)
+])
 
 dive = DiveProfile(checkpoints=dive_checkpoints)
 buhlmann = Buhlmann_Z16C()
