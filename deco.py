@@ -109,7 +109,7 @@ class BuhlmannCompartmentState:
         else:
             self.update_ppn2(
                 compartment,
-                inhaled_ppn2=1+(current_checkpoint.depth)/10 * NITROGEN,
+                inhaled_ppn2=(1+(current_checkpoint.depth)/10) * NITROGEN,
                 time_spent=current_checkpoint.time - previous_checkpoint.time,
                 prev_ppn2=previous_checkpoint.state[compartment.number].ppn2  # TODO I hate this
             )
