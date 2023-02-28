@@ -130,7 +130,7 @@ class BuhlmannCompartmentState:
         if equiv_depth < surfacing_m_value:
             return 0
         else:
-            return (equiv_depth - surfacing_m_value) * m_value_slope  # TODO is it times or divide? times is more conservative
+            return (equiv_depth - surfacing_m_value) / m_value_slope  # TODO is it times or divide? times is more conservative
 
     def __repr__(self) -> str:
         return "halftime is " + str(self.compartment) + " ppN2 is " + str(self.ppn2)
