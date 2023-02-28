@@ -193,7 +193,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
         compartment_ppn2 = [checkpoint.state[i].ppn2 for checkpoint in dive.profile]
         plt.plot(times, compartment_ppn2)
 
-    plt.savefig('deco/deco.png')
+    plt.savefig('deco.png')
 
 dive_checkpoints = [
     DiveProfileCheckpoint(time=0, depth=0),
