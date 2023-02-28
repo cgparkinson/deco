@@ -27,13 +27,42 @@ class DiveProfileCheckpoint:
         self.state = state
         self.validation = validation
 
+    def __repr__(self) -> str:
+        return str((self.time, self.depth, self.state, self.validation))
+    
+    def __str__(self):
+        return str((self.time, self.depth, self.state, self.validation))
+
 class DiveProfile:
     def __init__(self, checkpoints: List[DiveProfileCheckpoint]) -> None:
         self.__checkpoints__ = checkpoints
         self.profile = self.explode_checkpoints(checkpoints)
 
     def explode_checkpoints(self, checkpoints):
-        return checkpoints
+        assert checkpoints[0].time == 0
+        assert checkpoints[0].depth == 0
+        profile = []
+        time_to_process = 0
+        while time_to_process <= checkpoints[-1].time:
+            # get previous and next checkpoint
+            if time_to_process in [checkpoint.time for checkpoint in checkpoints]:
+                for checkpoint in checkpoints:
+                    if checkpoint.time == time_to_process:
+                        profile.append(checkpoint)
+            else:
+                for i in range(len(checkpoints)-1):
+                    prev_checkpoint = checkpoints[i]
+                    next_checkpoint = checkpoints[i+1]
+                    if time_to_process > prev_checkpoint.time and time_to_process < next_checkpoint.time:
+                        break
+                prop_prev = (time_to_process - prev_checkpoint.time) / (next_checkpoint.time - prev_checkpoint.time)
+                interpolated_depth = next_checkpoint.depth * prop_prev + prev_checkpoint.depth * (1-prop_prev)
+                new_checkpoint = DiveProfileCheckpoint(time=time_to_process, depth=interpolated_depth)
+                profile.append(new_checkpoint)
+            time_to_process = time_to_process + 1
+        print(profile)
+        return profile
+
 
 class DiveAlgorithm(ABC):
     def __calculate_states__(self, dive_profile: DiveProfile):
@@ -50,28 +79,52 @@ class DiveAlgorithm(ABC):
         return self.__validate_states__(dive_profile)
 
 class BuhlmannCompartment:
-    def __init__(self, number, m_values, half_time) -> None:
+    def __init__(self, number, m_values, half_time_min) -> None:
         self.number = number
-        self.m_values = m_values
-        self.half_time = half_time
+        self.m_values = m_values  # TODO how should this look?
+        self.half_time_min = half_time_min
+    
+    def __repr__(self) -> str:
+        return str(self.half_time_min)
+    
+    def __str__(self):
+        return str(self.half_time_min)
 
 class BuhlmannCompartmentState:
-    def __init__(self, compartment, current_checkpoint=None, previous_checkpoint=None) -> None:
+    def __init__(
+        self,
+        compartment: BuhlmannCompartment,
+        current_checkpoint: DiveProfileCheckpoint=None,
+        previous_checkpoint: DiveProfileCheckpoint=None
+    ) -> None:
+        self.compartment = compartment
         if previous_checkpoint == None:
             self.ppn2 = SURFACE_NITROGEN
         else:
-            self.ppn2 = self.update_ppn2(compartment, current_checkpoint, previous_checkpoint)
+            self.update_ppn2(
+                compartment,
+                inhaled_ppn2=1+(current_checkpoint.depth)/10 * NITROGEN,
+                time_spent=current_checkpoint.time - previous_checkpoint.time,
+                prev_ppn2=previous_checkpoint.state[compartment.number].ppn2  # TODO I hate this
+            )
     
     def update_ppn2(self,
         compartment: BuhlmannCompartment,
-        current_checkpoint: DiveProfileCheckpoint,
-        previous_checkpoint: DiveProfileCheckpoint):
-        # TODO: this is the main algo
-        self.ppn2 = SURFACE_NITROGEN
+        inhaled_ppn2,
+        time_spent,
+        prev_ppn2
+        ):
+        # this is the main algo
+        self.ppn2 = prev_ppn2 + (inhaled_ppn2 - prev_ppn2) * (1 - 2 ** (-(time_spent / 60) / compartment.half_time_min))
+
+    def __repr__(self) -> str:
+        return "halftime is " + str(self.compartment) + " ppN2 is " + str(self.ppn2)
+    
+    def __str__(self):
+        return "halftime is " + str(self.compartment) + " ppN2 is " + str(self.ppn2)
 
 class BuhlmannState(Sequence):
-    # this will always be a list of BuhlmannCompartmentState
-    # TODO: this is confusing, I want to say that a BuhlmannState is a list of BuhlmannCompartmentState without the attribute
+    # this will behave as a list of BuhlmannCompartmentState
     def __init__(self, compartments, prev_checkpoint: DiveProfileCheckpoint = None, cur_checkpoint: DiveProfileCheckpoint = None) -> None:
         if prev_checkpoint == None:
             state = [BuhlmannCompartmentState(compartment) for compartment in compartments]
@@ -87,10 +140,34 @@ class BuhlmannState(Sequence):
 
     def __len__(self):
         return len(self.__state__)
+    
+    def __repr__(self) -> str:
+        return str(self.__state__)
+    
+    def __str__(self):
+        return str(self.__state__)
 
 class Buhlmann_Z16C(DiveAlgorithm):
     def __init__(self) -> None:
-        self.compartments = [BuhlmannCompartment(number=1,m_values = None,half_time=1)]
+        # TODO number needs to be sequential and I hate this
+        self.compartments = [
+            BuhlmannCompartment(number=0,m_values = None,half_time_min=5),
+            BuhlmannCompartment(number=1,m_values = None,half_time_min=8),
+            BuhlmannCompartment(number=2,m_values = None,half_time_min=12.5),
+            BuhlmannCompartment(number=3,m_values = None,half_time_min=18.5),
+            BuhlmannCompartment(number=4,m_values = None,half_time_min=27),
+            BuhlmannCompartment(number=5,m_values = None,half_time_min=38.3),
+            BuhlmannCompartment(number=6,m_values = None,half_time_min=54.3),
+            BuhlmannCompartment(number=7,m_values = None,half_time_min=77),
+            BuhlmannCompartment(number=8,m_values = None,half_time_min=109),
+            BuhlmannCompartment(number=9,m_values = None,half_time_min=146),
+            BuhlmannCompartment(number=10,m_values = None,half_time_min=187),
+            BuhlmannCompartment(number=11,m_values = None,half_time_min=239),
+            BuhlmannCompartment(number=12,m_values = None,half_time_min=305),
+            BuhlmannCompartment(number=13,m_values = None,half_time_min=390),
+            BuhlmannCompartment(number=14,m_values = None,half_time_min=498),
+            BuhlmannCompartment(number=15,m_values = None,half_time_min=635)
+        ]
 
     def __calculate_states__(self, dive_profile: DiveProfile):
         for i in range(len(dive_profile.profile)):
@@ -104,10 +181,24 @@ class Buhlmann_Z16C(DiveAlgorithm):
     def __validate_states__(self, dive_profile: DiveProfile) -> bool:
         return None
 
+def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
+    times = [checkpoint.time for checkpoint in dive.profile]
+    depths = [checkpoint.depth for checkpoint in dive.profile]
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    plt.plot(times, depths)
+
+    for i in range(len(buhlmann.compartments)):
+        compartment_ppn2 = [checkpoint.state[i].ppn2 for checkpoint in dive.profile]
+        plt.plot(times, compartment_ppn2)
+
+    plt.savefig('deco/deco.png')
+
 dive_checkpoints = [
     DiveProfileCheckpoint(time=0, depth=0),
     DiveProfileCheckpoint(time=60, depth=18),
-    DiveProfileCheckpoint(time=60*30, depth=18),
+    DiveProfileCheckpoint(time=60*30, depth=9),
     DiveProfileCheckpoint(time=60*(30 + 2), depth=5),
     DiveProfileCheckpoint(time=60*(30 + 2 + 3), depth=5),
     DiveProfileCheckpoint(time=60*(30 + 2 + 3 + 1), depth=0)
@@ -116,3 +207,4 @@ dive_checkpoints = [
 dive = DiveProfile(checkpoints=dive_checkpoints)
 buhlmann = Buhlmann_Z16C()
 buhlmann.process(dive)
+graph_buhlmann_dive_profile(dive, buhlmann)
