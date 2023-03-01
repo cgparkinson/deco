@@ -84,8 +84,8 @@ class DiveAlgorithm(ABC):
 
 class BuhlmannCompartment:
     def __init__(self, number, surfacing_m_value, m_value_slope, half_time_min) -> None:
-        self.number = number
-        self.surfacing_m_value = surfacing_m_value  # in metres of sea water
+        self.number = number  # unused
+        self.surfacing_m_value = surfacing_m_value  # in metres of sea water (10 msw = 1 bar = surface)
         self.m_value_slope = m_value_slope
         self.half_time_min = half_time_min
     
@@ -107,11 +107,14 @@ class BuhlmannCompartmentState:
             self.ppn2 = SURFACE_NITROGEN
             self.ceiling = self.calculate_ceiling(self.ppn2, compartment.surfacing_m_value, compartment.m_value_slope)
         else:
+            prev_ppn2 = [
+                bcs.ppn2 for bcs in previous_checkpoint.state if compartment == bcs.compartment  # note the object comparison
+                ][0]
             self.update_ppn2(
                 compartment,
                 inhaled_ppn2=(1+(current_checkpoint.depth)/10) * NITROGEN,
                 time_spent=current_checkpoint.time - previous_checkpoint.time,
-                prev_ppn2=previous_checkpoint.state[compartment.number].ppn2  # TODO I hate this
+                prev_ppn2=prev_ppn2
             )
             self.ceiling = self.calculate_ceiling(self.ppn2, compartment.surfacing_m_value, compartment.m_value_slope)
     
@@ -183,25 +186,24 @@ class BuhlmannState(Sequence):
 
 class Buhlmann_Z16C(DiveAlgorithm):
     def __init__(self) -> None:
-        # TODO number needs to be sequential and I hate this
         # https://www.shearwater.com/wp-content/uploads/2019/05/understanding_m-values.pdf
         self.compartments = [
-            BuhlmannCompartment(number=0,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
-            BuhlmannCompartment(number=1,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
-            BuhlmannCompartment(number=2,surfacing_m_value=22.49424, m_value_slope = 1.3847,half_time_min=12.5),
-            BuhlmannCompartment(number=3,surfacing_m_value=20.36064, m_value_slope = 1.278,half_time_min=18.5),
-            BuhlmannCompartment(number=4,surfacing_m_value=18.53184, m_value_slope = 1.2306,half_time_min=27),
-            BuhlmannCompartment(number=5,surfacing_m_value=16.94688, m_value_slope = 1.1857,half_time_min=38.3),
-            BuhlmannCompartment(number=6,surfacing_m_value=15.94104, m_value_slope = 1.1504,half_time_min=54.3),
-            BuhlmannCompartment(number=7,surfacing_m_value=15.27048, m_value_slope = 1.1223,half_time_min=77),
-            BuhlmannCompartment(number=8,surfacing_m_value=14.7828, m_value_slope = 1.0999,half_time_min=109),
-            BuhlmannCompartment(number=9,surfacing_m_value=14.38656, m_value_slope = 1.0844,half_time_min=146),
-            BuhlmannCompartment(number=10,surfacing_m_value=14.05128, m_value_slope = 1.0731,half_time_min=187),
-            BuhlmannCompartment(number=11,surfacing_m_value=13.74648, m_value_slope = 1.0635,half_time_min=239),
-            BuhlmannCompartment(number=12,surfacing_m_value=13.44168, m_value_slope = 1.0552,half_time_min=305),
-            BuhlmannCompartment(number=13,surfacing_m_value=13.13688, m_value_slope = 1.0478,half_time_min=390),
-            BuhlmannCompartment(number=14,surfacing_m_value=12.92352, m_value_slope = 1.0414,half_time_min=498),
-            BuhlmannCompartment(number=15,surfacing_m_value=12.74064, m_value_slope = 1.0359,half_time_min=635)
+            BuhlmannCompartment(number=1,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
+            BuhlmannCompartment(number=2,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
+            BuhlmannCompartment(number=3,surfacing_m_value=22.49424, m_value_slope = 1.3847,half_time_min=12.5),
+            BuhlmannCompartment(number=4,surfacing_m_value=20.36064, m_value_slope = 1.278,half_time_min=18.5),
+            BuhlmannCompartment(number=5,surfacing_m_value=18.53184, m_value_slope = 1.2306,half_time_min=27),
+            BuhlmannCompartment(number=6,surfacing_m_value=16.94688, m_value_slope = 1.1857,half_time_min=38.3),
+            BuhlmannCompartment(number=7,surfacing_m_value=15.94104, m_value_slope = 1.1504,half_time_min=54.3),
+            BuhlmannCompartment(number=8,surfacing_m_value=15.27048, m_value_slope = 1.1223,half_time_min=77),
+            BuhlmannCompartment(number=9,surfacing_m_value=14.7828, m_value_slope = 1.0999,half_time_min=109),
+            BuhlmannCompartment(number=10,surfacing_m_value=14.38656, m_value_slope = 1.0844,half_time_min=146),
+            BuhlmannCompartment(number=11,surfacing_m_value=14.05128, m_value_slope = 1.0731,half_time_min=187),
+            BuhlmannCompartment(number=12,surfacing_m_value=13.74648, m_value_slope = 1.0635,half_time_min=239),
+            BuhlmannCompartment(number=13,surfacing_m_value=13.44168, m_value_slope = 1.0552,half_time_min=305),
+            BuhlmannCompartment(number=14,surfacing_m_value=13.13688, m_value_slope = 1.0478,half_time_min=390),
+            BuhlmannCompartment(number=15,surfacing_m_value=12.92352, m_value_slope = 1.0414,half_time_min=498),
+            BuhlmannCompartment(number=16,surfacing_m_value=12.74064, m_value_slope = 1.0359,half_time_min=635)
         ]
 
     def __calculate_states__(self, dive_profile: DiveProfile):
