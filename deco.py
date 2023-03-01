@@ -127,28 +127,33 @@ class BuhlmannCompartmentState:
         # this is the main algo
         self.ppn2 = prev_ppn2 + (inhaled_ppn2 - prev_ppn2) * (1 - 2 ** (-(time_spent / 60) / compartment.half_time_min))
 
-    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope, gf=100):
+    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope):#, gf=100):
         # TODO stare carefully at this maths as this whole section makes NO sense
-        surfacing_m_value_bar = (surfacing_m_value/10 - 1) * NITROGEN  # trying with the idea that the m-values have surface = 10msw
-        gf_prop = gf/100
-        equiv_abs_pressure = ppn2  # depth at which you would be in equilibrium. this is the y-axis
-        adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
+        surfacing_m_value_bar = surfacing_m_value/10 # body partial pressure limit for nitrogen
+        # gf_prop = gf/100
+        # equiv_abs_pressure = ppn2  # depth at which you would be in equilibrium. this is the y-axis
+        # m_value_slope is increase of M per metre depth - the units here are different - change in partial pressure per metre
+        m_value_slope_bar = m_value_slope  # change in partial pressure per bar
+        # adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
 
         """
-        line for m-value is:
-        equiv_depth = slope * depth + surfacing_m_value
-        adjusted, this is
-        equiv_depth = gf_slope * depth + gf_surfacing_m_value
+        The Nitrogen constant NITROGEN should not appear here AT ALL. nobody cares what you're breathing. It's only the ppn2
+        in your body compared to the pressure around you. That's all
 
-        given equiv_depth, need depth
-        depth = (equiv_depth - gf_surfacing_m_value)/gf_slope
+        Find M-value for a given ambient pressure.
 
-        adjusted slope is the weighted average of 1 and original slope, gf=1 gives original slope
-        adjusted surfacing m_value is ??? weighted average of 0  and original surfacing m_value, gf=1 gives original
+        Ambient pressure = 1 means M-value = surfacing_m_value
+        Ambient pressure = 2 means M-value = surfacing_m_value + m_value_slope_bar
+
+        so M_value = surfacing_m_value + amb_press_bar * m_value_slope_bar
+
+        now sub ppn2 = M_value and find amb_press_bar
+
+        amb_press_bar = (ppn2 - surfacing_m_value) / m_value_slope_bar
         """
 
-        ceiling_bar = (equiv_abs_pressure - (surfacing_m_value_bar)*gf_prop) / adjusted_m_value_slope
-        ceiling = ceiling_bar*10-10
+        ceiling_bar = (ppn2 - surfacing_m_value_bar) / m_value_slope_bar
+        ceiling = ceiling_bar*10  # why not +1 ?!
         if ceiling<0:
             return 0
         else:
@@ -234,6 +239,8 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     for i in range(len(buhlmann.compartments)):
         compartment_ceiling = [-checkpoint.state[i].ceiling for checkpoint in dive.profile]
         plt.plot(times, compartment_ceiling, label=str(buhlmann.compartments[i].half_time_min) + 'min')
+        # compartment_ppn2 = [checkpoint.state[i].ppn2 for checkpoint in dive.profile]
+        # plt.plot(times, compartment_ppn2, label=str(buhlmann.compartments[i].half_time_min) + 'min')
     plt.xlabel('time (min)')
     plt.ylabel('depth (m)')
     plt.title('Naive (GF 100/100) Buhlmann ZHL-16C ceilings by compartment\nDive is {} [DO NOT TRUST THIS PLANNER!]'.format('permissible' if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)))
