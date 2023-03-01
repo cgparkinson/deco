@@ -131,10 +131,8 @@ class BuhlmannCompartmentState:
         # TODO stare carefully at this maths as this whole section makes NO sense
         surfacing_m_value_bar = surfacing_m_value/10 # body partial pressure limit for nitrogen
         # gf_prop = gf/100
-        # equiv_abs_pressure = ppn2  # depth at which you would be in equilibrium. this is the y-axis
-        # m_value_slope is increase of M per metre depth - the units here are different - change in partial pressure per metre
         m_value_slope_bar = m_value_slope  # change in partial pressure per bar
-        # adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
+        adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
 
         """
         The Nitrogen constant NITROGEN should not appear here AT ALL. nobody cares what you're breathing. It's only the ppn2
@@ -151,9 +149,10 @@ class BuhlmannCompartmentState:
 
         amb_press_bar = (ppn2 - surfacing_m_value) / m_value_slope_bar
         """
-
-        ceiling_bar = (ppn2 - surfacing_m_value_bar) / m_value_slope_bar
-        ceiling = ceiling_bar*10  # why not +1 ?!
+        # -1 is an offset to do with the intercept being zero absolute pressure not surface pressure?
+        # TODO justify
+        ceiling_bar = (ppn2 - surfacing_m_value_bar - m_value_slope_bar) / m_value_slope_bar
+        ceiling = (ceiling_bar + 1) * 10
         if ceiling<0:
             return 0
         else:
