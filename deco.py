@@ -127,13 +127,12 @@ class BuhlmannCompartmentState:
         # this is the main algo
         self.ppn2 = prev_ppn2 + (inhaled_ppn2 - prev_ppn2) * (1 - 2 ** (-(time_spent / 60) / compartment.half_time_min))
 
-    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope):#, gf=100):
-        # TODO stare carefully at this maths as this whole section makes NO sense
+    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope, gf=100):
+        # TODO fix gradient factors
         surfacing_m_value_bar = surfacing_m_value/10 # body partial pressure limit for nitrogen
-        # gf_prop = gf/100
-        m_value_slope_bar = m_value_slope  # change in partial pressure per bar
-        # adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
-
+        gf_prop = gf/100
+        adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
+        # adjusted_surfacing_m_value_bar = ??  # TODO
         """
         The Nitrogen constant NITROGEN should not appear here AT ALL. nobody cares what you're breathing. It's only the ppn2
         in your body compared to the pressure around you. That's all
@@ -151,7 +150,7 @@ class BuhlmannCompartmentState:
         """
         # -1 is an offset to do with the intercept being zero absolute pressure not surface pressure?
         # TODO justify
-        ceiling_bar = (ppn2 - surfacing_m_value_bar - m_value_slope_bar) / m_value_slope_bar
+        ceiling_bar = (ppn2 - surfacing_m_value_bar - m_value_slope) / adjusted_m_value_slope
         ceiling = (ceiling_bar + 1) * 10
         if ceiling<0:
             return 0
