@@ -132,7 +132,7 @@ class BuhlmannCompartmentState:
         surfacing_m_value_bar = surfacing_m_value/10 # body partial pressure limit for nitrogen
         # gf_prop = gf/100
         m_value_slope_bar = m_value_slope  # change in partial pressure per bar
-        adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
+        # adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
 
         """
         The Nitrogen constant NITROGEN should not appear here AT ALL. nobody cares what you're breathing. It's only the ppn2
