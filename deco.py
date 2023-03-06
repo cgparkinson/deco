@@ -127,15 +127,19 @@ class BuhlmannCompartmentState:
         # this is the main algo
         self.ppn2 = prev_ppn2 + (inhaled_ppn2 - prev_ppn2) * (1 - 2 ** (-(time_spent / 60) / compartment.half_time_min))
 
-    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope, gf=100):
+    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope, gf=40):
         # TODO fix gradient factors
         surfacing_m_value_bar = surfacing_m_value/10 # body partial pressure limit for nitrogen
         gf_prop = gf/100
         adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
-        # adjusted_surfacing_m_value_bar = ??  # TODO
+        adjusted_surfacing_m_value_bar = (surfacing_m_value_bar - 1) * gf_prop + 1
         """
         The Nitrogen constant NITROGEN should not appear here AT ALL. nobody cares what you're breathing. It's only the ppn2
-        in your body compared to the pressure around you. That's all
+        in your body compared to the pressure around you. That's all that's relevant for deco calculations.
+
+        For offgassing, NITROGEN does come into play. Whether you're on- or off-gassing has nothing to do with the line y=x,
+        it's related to what you're breathing.
+        https://scubaboard.com/community/threads/ceiling-gf.568222/page-11#post-8433388
 
         Find M-value for a given ambient pressure.
 
@@ -150,7 +154,7 @@ class BuhlmannCompartmentState:
         """
         # -1 is an offset to do with the intercept being zero absolute pressure not surface pressure?
         # TODO justify
-        ceiling_bar = (ppn2 - surfacing_m_value_bar - m_value_slope) / adjusted_m_value_slope
+        ceiling_bar = (ppn2 - adjusted_surfacing_m_value_bar - adjusted_m_value_slope) / adjusted_m_value_slope
         ceiling = (ceiling_bar + 1) * 10
         if ceiling<0:
             return 0
@@ -241,7 +245,12 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
         # plt.plot(times, compartment_ppn2, label=str(buhlmann.compartments[i].half_time_min) + 'min')
     plt.xlabel('time (min)')
     plt.ylabel('depth (m)')
-    plt.title('Naive (GF 100/100) Buhlmann ZHL-16C ceilings by compartment\nDive is {} [DO NOT TRUST THIS PLANNER!]'.format('permissible' if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)))
+    plt.title(
+        'Naive (GF 100/100) Buhlmann ZHL-16C ceilings by compartment\n'
+        + 'Dive is {} [DO NOT TRUST THIS PLANNER!]'.format(
+            'permissible' if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)
+            )
+        )
 
     # Put a legend to the right of the current axis
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
