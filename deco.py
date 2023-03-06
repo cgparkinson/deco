@@ -83,8 +83,8 @@ class DiveAlgorithm(ABC):
         return self.__validate_states__(dive_profile)
 
 class BuhlmannCompartment:
-    def __init__(self, number, surfacing_m_value, m_value_slope, half_time_min) -> None:
-        self.number = number  # unused
+    def __init__(self, gf_hi, surfacing_m_value, m_value_slope, half_time_min) -> None:
+        self.gf_hi = gf_hi  # unused
         self.surfacing_m_value = surfacing_m_value  # in metres of sea water (10 msw = 1 bar = surface)
         self.m_value_slope = m_value_slope
         self.half_time_min = half_time_min
@@ -105,7 +105,7 @@ class BuhlmannCompartmentState:
         self.compartment = compartment
         if previous_checkpoint == None:
             self.ppn2 = SURFACE_NITROGEN
-            self.ceiling = self.calculate_ceiling(self.ppn2, compartment.surfacing_m_value, compartment.m_value_slope)
+            self.ceiling = self.calculate_ceiling(self.ppn2, compartment)
         else:
             prev_ppn2 = [
                 bcs.ppn2 for bcs in previous_checkpoint.state if compartment == bcs.compartment  # note the object comparison
@@ -116,7 +116,7 @@ class BuhlmannCompartmentState:
                 time_spent=current_checkpoint.time - previous_checkpoint.time,
                 prev_ppn2=prev_ppn2
             )
-            self.ceiling = self.calculate_ceiling(self.ppn2, compartment.surfacing_m_value, compartment.m_value_slope)
+            self.ceiling = self.calculate_ceiling(self.ppn2, compartment)
     
     def update_ppn2(self,
         compartment: BuhlmannCompartment,
@@ -127,7 +127,10 @@ class BuhlmannCompartmentState:
         # this is the main algo
         self.ppn2 = prev_ppn2 + (inhaled_ppn2 - prev_ppn2) * (1 - 2 ** (-(time_spent / 60) / compartment.half_time_min))
 
-    def calculate_ceiling(self, ppn2, surfacing_m_value, m_value_slope, gf=40):
+    def calculate_ceiling(self, ppn2, compartment):
+        surfacing_m_value=compartment.surfacing_m_value
+        m_value_slope = compartment.m_value_slope
+        gf=compartment.gf_hi  # TODO: is a gradient factor an attribute of a compartment?
         # TODO fix gradient factors
         surfacing_m_value_bar = surfacing_m_value/10 # body partial pressure limit for nitrogen
         gf_prop = gf/100
@@ -154,7 +157,7 @@ class BuhlmannCompartmentState:
         """
         # -1 is an offset to do with the intercept being zero absolute pressure not surface pressure?
         # TODO justify
-        ceiling_bar = (ppn2 - adjusted_surfacing_m_value_bar - adjusted_m_value_slope) / adjusted_m_value_slope
+        ceiling_bar = (ppn2 - adjusted_surfacing_m_value_bar) / adjusted_m_value_slope - 1
         ceiling = (ceiling_bar + 1) * 10
         if ceiling<0:
             return 0
@@ -192,25 +195,25 @@ class BuhlmannState(Sequence):
         return str(self.__state__)
 
 class Buhlmann_Z16C(DiveAlgorithm):
-    def __init__(self) -> None:
+    def __init__(self, gf_hi=100) -> None:
         # https://www.shearwater.com/wp-content/uploads/2019/05/understanding_m-values.pdf
         self.compartments = [
-            BuhlmannCompartment(number=1,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
-            BuhlmannCompartment(number=2,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
-            BuhlmannCompartment(number=3,surfacing_m_value=22.49424, m_value_slope = 1.3847,half_time_min=12.5),
-            BuhlmannCompartment(number=4,surfacing_m_value=20.36064, m_value_slope = 1.278,half_time_min=18.5),
-            BuhlmannCompartment(number=5,surfacing_m_value=18.53184, m_value_slope = 1.2306,half_time_min=27),
-            BuhlmannCompartment(number=6,surfacing_m_value=16.94688, m_value_slope = 1.1857,half_time_min=38.3),
-            BuhlmannCompartment(number=7,surfacing_m_value=15.94104, m_value_slope = 1.1504,half_time_min=54.3),
-            BuhlmannCompartment(number=8,surfacing_m_value=15.27048, m_value_slope = 1.1223,half_time_min=77),
-            BuhlmannCompartment(number=9,surfacing_m_value=14.7828, m_value_slope = 1.0999,half_time_min=109),
-            BuhlmannCompartment(number=10,surfacing_m_value=14.38656, m_value_slope = 1.0844,half_time_min=146),
-            BuhlmannCompartment(number=11,surfacing_m_value=14.05128, m_value_slope = 1.0731,half_time_min=187),
-            BuhlmannCompartment(number=12,surfacing_m_value=13.74648, m_value_slope = 1.0635,half_time_min=239),
-            BuhlmannCompartment(number=13,surfacing_m_value=13.44168, m_value_slope = 1.0552,half_time_min=305),
-            BuhlmannCompartment(number=14,surfacing_m_value=13.13688, m_value_slope = 1.0478,half_time_min=390),
-            BuhlmannCompartment(number=15,surfacing_m_value=12.92352, m_value_slope = 1.0414,half_time_min=498),
-            BuhlmannCompartment(number=16,surfacing_m_value=12.74064, m_value_slope = 1.0359,half_time_min=635)
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=22.49424, m_value_slope = 1.3847,half_time_min=12.5),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=20.36064, m_value_slope = 1.278,half_time_min=18.5),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=18.53184, m_value_slope = 1.2306,half_time_min=27),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=16.94688, m_value_slope = 1.1857,half_time_min=38.3),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=15.94104, m_value_slope = 1.1504,half_time_min=54.3),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=15.27048, m_value_slope = 1.1223,half_time_min=77),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=14.7828, m_value_slope = 1.0999,half_time_min=109),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=14.38656, m_value_slope = 1.0844,half_time_min=146),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=14.05128, m_value_slope = 1.0731,half_time_min=187),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=13.74648, m_value_slope = 1.0635,half_time_min=239),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=13.44168, m_value_slope = 1.0552,half_time_min=305),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=13.13688, m_value_slope = 1.0478,half_time_min=390),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=12.92352, m_value_slope = 1.0414,half_time_min=498),
+            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=12.74064, m_value_slope = 1.0359,half_time_min=635)
         ]
 
     def __calculate_states__(self, dive_profile: DiveProfile):
@@ -276,6 +279,6 @@ dive_checkpoints = lazy_make_dive_checkpoints([
 ])
 
 dive = DiveProfile(checkpoints=dive_checkpoints)
-buhlmann = Buhlmann_Z16C()
+buhlmann = Buhlmann_Z16C(gf_hi=40)
 buhlmann.process(dive)
 graph_buhlmann_dive_profile(dive, buhlmann)
