@@ -236,7 +236,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     depths = [-checkpoint.depth for checkpoint in dive.profile]
     checkpoints_not_allowed = [checkpoint for checkpoint in dive.profile if not checkpoint.validation]
     validation = len(checkpoints_not_allowed) == 0
-    min_minute_not_allowed = None if validation else checkpoints_not_allowed[0].time//60
+    min_minute_not_allowed = None if validation else int(checkpoints_not_allowed[0].time//60)
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -259,7 +259,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
 
     # Put a legend to the right of the current axis
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.legend()#loc='center left')
+    # plt.legend(loc='center left')
 
     plt.savefig('deco.png')
 
@@ -285,6 +285,22 @@ dive_checkpoints = lazy_make_dive_checkpoints([
     (35,6),
     (1,3),
     (100,3),
+    (1,0)
+])
+dive_checkpoints = lazy_make_dive_checkpoints([
+    (0,0),
+    (1,35),
+    (30,35),
+    (2,15),
+    (2,15),
+    (0.4,12),
+    (6,12),
+    (0.4,9),
+    (11,9),
+    (0.4,6),
+    (27,6),
+    (0.4,3),
+    (67,3),
     (1,0)
 ])
 
