@@ -84,7 +84,7 @@ class DiveAlgorithm(ABC):
 
 class BuhlmannCompartment:
     def __init__(self, gf_hi, surfacing_m_value, m_value_slope, half_time_min) -> None:
-        self.gf_hi = gf_hi  # unused
+        self.gf_hi = gf_hi  # TODO refactor again
         self.surfacing_m_value = surfacing_m_value  # in metres of sea water (10 msw = 1 bar = surface)
         self.m_value_slope = m_value_slope
         self.half_time_min = half_time_min
@@ -195,25 +195,27 @@ class BuhlmannState(Sequence):
         return str(self.__state__)
 
 class Buhlmann_Z16C(DiveAlgorithm):
-    def __init__(self, gf_hi=100) -> None:
+    def __init__(self, gf=100) -> None:
         # https://www.shearwater.com/wp-content/uploads/2019/05/understanding_m-values.pdf
+        self.gf_hi=gf
+        self.gf_lo=gf  # not used, much harder to implement
         self.compartments = [
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=22.49424, m_value_slope = 1.3847,half_time_min=12.5),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=20.36064, m_value_slope = 1.278,half_time_min=18.5),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=18.53184, m_value_slope = 1.2306,half_time_min=27),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=16.94688, m_value_slope = 1.1857,half_time_min=38.3),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=15.94104, m_value_slope = 1.1504,half_time_min=54.3),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=15.27048, m_value_slope = 1.1223,half_time_min=77),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=14.7828, m_value_slope = 1.0999,half_time_min=109),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=14.38656, m_value_slope = 1.0844,half_time_min=146),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=14.05128, m_value_slope = 1.0731,half_time_min=187),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=13.74648, m_value_slope = 1.0635,half_time_min=239),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=13.44168, m_value_slope = 1.0552,half_time_min=305),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=13.13688, m_value_slope = 1.0478,half_time_min=390),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=12.92352, m_value_slope = 1.0414,half_time_min=498),
-            BuhlmannCompartment(gf_hi=gf_hi,surfacing_m_value=12.74064, m_value_slope = 1.0359,half_time_min=635)
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=29.65704, m_value_slope = 1.7928,half_time_min=5),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=25.35936, m_value_slope = 1.5352,half_time_min=8),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=22.49424, m_value_slope = 1.3847,half_time_min=12.5),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=20.36064, m_value_slope = 1.278,half_time_min=18.5),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=18.53184, m_value_slope = 1.2306,half_time_min=27),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=16.94688, m_value_slope = 1.1857,half_time_min=38.3),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=15.94104, m_value_slope = 1.1504,half_time_min=54.3),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=15.27048, m_value_slope = 1.1223,half_time_min=77),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=14.7828, m_value_slope = 1.0999,half_time_min=109),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=14.38656, m_value_slope = 1.0844,half_time_min=146),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=14.05128, m_value_slope = 1.0731,half_time_min=187),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=13.74648, m_value_slope = 1.0635,half_time_min=239),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=13.44168, m_value_slope = 1.0552,half_time_min=305),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=13.13688, m_value_slope = 1.0478,half_time_min=390),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=12.92352, m_value_slope = 1.0414,half_time_min=498),
+            BuhlmannCompartment(gf_hi=gf,surfacing_m_value=12.74064, m_value_slope = 1.0359,half_time_min=635)
         ]
 
     def __calculate_states__(self, dive_profile: DiveProfile):
@@ -249,7 +251,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     plt.xlabel('time (min)')
     plt.ylabel('depth (m)')
     plt.title(
-        'Naive (GF 100/100) Buhlmann ZHL-16C ceilings by compartment\n'
+        'GF {gf_lo}/{gf_hi} Buhlmann ZHL-16C ceilings by compartment\n'.format(gf_lo=buhlmann.gf_lo, gf_hi=buhlmann.gf_hi)
         + 'Dive is {} [DO NOT TRUST THIS PLANNER!]'.format(
             'permissible' if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)
             )
@@ -279,6 +281,6 @@ dive_checkpoints = lazy_make_dive_checkpoints([
 ])
 
 dive = DiveProfile(checkpoints=dive_checkpoints)
-buhlmann = Buhlmann_Z16C(gf_hi=40)
+buhlmann = Buhlmann_Z16C(gf=40)
 buhlmann.process(dive)
 graph_buhlmann_dive_profile(dive, buhlmann)
