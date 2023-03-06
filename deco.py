@@ -259,7 +259,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
 
     # Put a legend to the right of the current axis
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.legend(loc='center left')
+    plt.legend()#loc='center left')
 
     plt.savefig('deco.png')
 
@@ -275,8 +275,16 @@ dive_checkpoints = lazy_make_dive_checkpoints([
     (0,0),
     (1,35),
     (30,35),
-    (3,5),
-    (3,5),
+    (2,15),
+    (3,15),
+    (1,12),
+    (5,12),
+    (1,9),
+    (13,9),
+    (1,6),
+    (35,6),
+    (1,3),
+    (100,3),
     (1,0)
 ])
 
