@@ -62,6 +62,16 @@ class DiveProfile:
             time_to_process = time_to_process + 1
         return profile
     
+    def delete_after(self, t):
+        # TODO optimisation for GetMeHome
+        for i in reversed(range(len(self.profile))):
+            if self.profile[i].time > t:
+                self.profile.pop()
+    
+    def add_checkpoint(self, checkpoint):
+        # TODO optimisation for GetMeHome
+        pass
+    
     def __getitem__(self, key):
         return self.profile[key]
 
@@ -221,11 +231,12 @@ class Buhlmann_Z16C(DiveAlgorithm):
     def __calculate_states__(self, dive_profile: DiveProfile):
         for i in range(len(dive_profile.profile)):
             cur_checkpoint = dive_profile.profile[i]  # to update
-            if i == 0:
-                cur_checkpoint.state = BuhlmannState(self.compartments)
-            else:
-                prev_checkpoint = dive_profile.profile[i-1]
-                cur_checkpoint.state = BuhlmannState(self.compartments, prev_checkpoint, cur_checkpoint)
+            if not cur_checkpoint.state:
+                if i == 0:
+                    cur_checkpoint.state = BuhlmannState(self.compartments)
+                else:
+                    prev_checkpoint = dive_profile.profile[i-1]
+                    cur_checkpoint.state = BuhlmannState(self.compartments, prev_checkpoint, cur_checkpoint)
 
     def __validate_states__(self, dive_profile: DiveProfile) -> bool:
         for checkpoint in dive_profile:
