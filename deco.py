@@ -230,13 +230,15 @@ class Buhlmann_Z16C(DiveAlgorithm):
     def __validate_states__(self, dive_profile: DiveProfile) -> bool:
         for checkpoint in dive_profile:
             checkpoint.validation = all([compartment.ceiling <= checkpoint.depth for compartment in checkpoint.state])
+        return all([checkpoint.validation for checkpoint in dive_profile])
 
 def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     times = [checkpoint.time/60 for checkpoint in dive.profile]
     depths = [-checkpoint.depth for checkpoint in dive.profile]
     checkpoints_not_allowed = [checkpoint for checkpoint in dive.profile if not checkpoint.validation]
     validation = len(checkpoints_not_allowed) == 0
-    min_minute_not_allowed = None if validation else int(checkpoints_not_allowed[0].time//60)
+    min_second_not_allowed = None if validation else int(checkpoints_not_allowed[0].time)
+    min_minute_not_allowed = None if validation else int(min_second_not_allowed//60)
 
     import matplotlib.pyplot as plt
     import numpy as np
