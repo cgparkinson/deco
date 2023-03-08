@@ -238,7 +238,8 @@ class Buhlmann_Z16C(DiveAlgorithm):
 
     def __validate_states__(self, dive_profile: DiveProfile) -> bool:
         for checkpoint in dive_profile:
-            checkpoint.validation = all([compartment.ceiling <= checkpoint.depth for compartment in checkpoint.state])
+            if not checkpoint.validation:
+                checkpoint.validation = all([compartment.ceiling <= checkpoint.depth for compartment in checkpoint.state])
         return all([checkpoint.validation for checkpoint in dive_profile])
 
 def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
@@ -250,7 +251,6 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     min_minute_not_allowed = None if validation else int(min_second_not_allowed//60)
 
     import matplotlib.pyplot as plt
-    import numpy as np
     plt.tight_layout()
     plt.plot(times, depths, label='depth')
 
@@ -268,8 +268,6 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
             )
         )
 
-    # Put a legend to the right of the current axis
-    # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    # plt.legend(loc='center left')
+    plt.legend(bbox_to_anchor=(1.04, 1), borderaxespad=0)
 
-    plt.savefig('deco.png')
+    plt.savefig('deco.png',bbox_inches="tight")
