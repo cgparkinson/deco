@@ -69,7 +69,6 @@ class GetMeHome():
         pass
 
     def get_new_checkpoint_from_all_checkpoints(self, dive_checkpoints):
-        # TODO: make it so we don't have to calculate the whole status each iteration, we should cache it
         dive = DiveProfile(checkpoints=dive_checkpoints)
         while dive_checkpoints[-1].depth > 0 and dive_checkpoints[-1].time < 10000:
             prev_time = dive_checkpoints[-1].time
@@ -85,13 +84,14 @@ class GetMeHome():
             
             new_dive_checkpoint = DiveProfileCheckpoint(time=new_time, depth = new_depth)
             dive_checkpoints.append(new_dive_checkpoint)
-            dive = DiveProfile(checkpoints=dive_checkpoints)  # TODO optimisation: replace this line with dive.add_checkpoint()
+            dive.add_checkpoint(new_dive_checkpoint)
             valid = self.algorithm.process(dive)
             if not valid:
+                new_dive_checkpoint = DiveProfileCheckpoint(time=prev_time+60, depth = prev_depth)
                 dive_checkpoints.pop()
-                dive_checkpoints.append(DiveProfileCheckpoint(time=prev_time+60, depth = prev_depth))
-                # TODO optimisation: dive.delete_after() and dive.add_checkpoint()
-            print(new_time, new_depth)
+                dive_checkpoints.append(new_dive_checkpoint)
+                dive.delete_after(prev_time)
+                dive.add_checkpoint(new_dive_checkpoint)
         
         return dive_checkpoints
 

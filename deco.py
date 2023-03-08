@@ -36,31 +36,14 @@ class DiveProfileCheckpoint:
 class DiveProfile:
     def __init__(self, checkpoints: List[DiveProfileCheckpoint]) -> None:
         self.__checkpoints__ = checkpoints
-        self.profile = self.explode_checkpoints(checkpoints)
+        self.explode_checkpoints(checkpoints)
 
     def explode_checkpoints(self, checkpoints):
         assert checkpoints[0].time == 0
         assert checkpoints[0].depth == 0
-        profile = []
-        time_to_process = 0
-        while time_to_process <= checkpoints[-1].time:
-            # get previous and next checkpoint
-            if time_to_process in [checkpoint.time for checkpoint in checkpoints]:
-                for checkpoint in checkpoints:
-                    if checkpoint.time == time_to_process:
-                        profile.append(checkpoint)
-            else:
-                for i in range(len(checkpoints)-1):
-                    prev_checkpoint = checkpoints[i]
-                    next_checkpoint = checkpoints[i+1]
-                    if time_to_process > prev_checkpoint.time and time_to_process < next_checkpoint.time:
-                        break
-                prop_prev = (time_to_process - prev_checkpoint.time) / (next_checkpoint.time - prev_checkpoint.time)
-                interpolated_depth = next_checkpoint.depth * prop_prev + prev_checkpoint.depth * (1-prop_prev)
-                new_checkpoint = DiveProfileCheckpoint(time=time_to_process, depth=interpolated_depth)
-                profile.append(new_checkpoint)
-            time_to_process = time_to_process + 1
-        return profile
+        self.profile = []
+        for checkpoint in checkpoints:
+            self.add_checkpoint(checkpoint)
     
     def delete_after(self, t):
         # TODO optimisation for GetMeHome
@@ -68,9 +51,24 @@ class DiveProfile:
             if self.profile[i].time > t:
                 self.profile.pop()
     
-    def add_checkpoint(self, checkpoint):
-        # TODO optimisation for GetMeHome
-        pass
+    def add_checkpoint(self, next_checkpoint):
+        if self.profile:
+            prev_checkpoint = self.profile[-1]
+        else:
+            self.profile.append(next_checkpoint)
+            return None
+        time_to_process = prev_checkpoint.time
+
+        while time_to_process <= next_checkpoint.time:
+            # get previous and next checkpoint
+            if time_to_process == next_checkpoint.time:
+                self.profile.append(next_checkpoint)
+            else:
+                prop_prev = (time_to_process - prev_checkpoint.time) / (next_checkpoint.time - prev_checkpoint.time)
+                interpolated_depth = next_checkpoint.depth * prop_prev + prev_checkpoint.depth * (1-prop_prev)
+                new_checkpoint = DiveProfileCheckpoint(time=time_to_process, depth=interpolated_depth)
+                self.profile.append(new_checkpoint)
+            time_to_process = time_to_process + 1
     
     def __getitem__(self, key):
         return self.profile[key]
@@ -275,11 +273,3 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     # plt.legend(loc='center left')
 
     plt.savefig('deco.png')
-
-def lazy_make_dive_checkpoints(l):
-    checkpoints = []
-    t = 0
-    for i in l:
-        checkpoints.append(DiveProfileCheckpoint(time=i[0]*60+t, depth=i[1]))
-        t += i[0]*60
-    return checkpoints
