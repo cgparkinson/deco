@@ -70,7 +70,7 @@ class GetMeHome():
 
     def get_new_checkpoint_from_all_checkpoints(self, dive_checkpoints):
         dive = DiveProfile(checkpoints=dive_checkpoints)
-        while dive_checkpoints[-1].depth > 0 and dive_checkpoints[-1].time < 10000:
+        while dive_checkpoints[-1].depth > 0 and dive_checkpoints[-1].time < 60*60*10:
             prev_time = dive_checkpoints[-1].time
             prev_depth = dive_checkpoints[-1].depth
             if prev_depth % 3 == 0:
