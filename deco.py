@@ -20,6 +20,8 @@ SURFACE_OXYGEN = 0.21
 SURFACE_NITROGEN = 0.79
 assert SURFACE_OXYGEN + SURFACE_NITROGEN == 1
 
+WV_PRESSURE = 0.0627
+
 class DiveProfileCheckpoint:
     def __init__(self, time, depth, state=None, validation=None) -> None:
         self.time = time
@@ -112,7 +114,7 @@ class BuhlmannCompartmentState:
     ) -> None:
         self.compartment = compartment
         if previous_checkpoint == None:
-            self.ppn2 = SURFACE_NITROGEN
+            self.ppn2 = (1 - WV_PRESSURE) * SURFACE_NITROGEN
             self.ceiling = self.calculate_ceiling(self.ppn2, compartment)
         else:
             prev_ppn2 = [
@@ -120,7 +122,7 @@ class BuhlmannCompartmentState:
                 ][0]
             self.update_ppn2(
                 compartment,
-                inhaled_ppn2=(1+(current_checkpoint.depth)/10) * NITROGEN,
+                inhaled_ppn2=(1+(current_checkpoint.depth)/10 - WV_PRESSURE) * NITROGEN,
                 time_spent=current_checkpoint.time - previous_checkpoint.time,
                 prev_ppn2=prev_ppn2
             )
@@ -259,12 +261,16 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
         plt.plot(times, compartment_ceiling, label=str(buhlmann.compartments[i].half_time_min) + 'min')
         # compartment_ppn2 = [checkpoint.state[i].ppn2 for checkpoint in dive.profile]
         # plt.plot(times, compartment_ppn2, label=str(buhlmann.compartments[i].half_time_min) + 'min')
+    
+    xcoords = range(int(min(times)), int(max(times)), 5)
+    for xc in xcoords:
+        plt.axvline(x=xc, color='gray', linestyle='dotted', linewidth='0.3')
     plt.xlabel('time (min)')
     plt.ylabel('depth (m)')
     plt.title(
         'GF {gf_lo}/{gf_hi} Buhlmann ZHL-16C ceilings by compartment\n'.format(gf_lo=buhlmann.gf_lo, gf_hi=buhlmann.gf_hi)
         + 'Dive is {} [DO NOT TRUST THIS PLANNER!]'.format(
-            'permissible' if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)
+            'permissible, {} min'.format(str(int(max(times)))) if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)
             )
         )
 

@@ -110,11 +110,11 @@ def process_diveplan(dive_plan):
             dive_checkpoints = action.get_new_checkpoint_from_all_checkpoints(dive_checkpoints)
     return dive_checkpoints
 
-buhlmann = Buhlmann_Z16C(gf=75)
+buhlmann = Buhlmann_Z16C(gf=80)
 
 dive_plan = [
     ChangeDepth(depth=45, speed_mm=18),
-    MaintainDepth(time_min=20.2),
+    MaintainDepth(time_min=20),
     GetMeHome(algorithm=buhlmann)
     # SafetyStop(),
     # AscendDirectly()
