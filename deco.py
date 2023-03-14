@@ -11,21 +11,39 @@ An algorithm will then run to generate (time,depth,compartment_1_ppN2)
 A second algorithm will compare (depth,compartment_1_ppN2) to the M-value at that depth
 """
 
-# set obvious parameters
-OXYGEN = 0.21
-NITROGEN = 0.79
-assert OXYGEN + NITROGEN == 1
-
 SURFACE_OXYGEN = 0.21
 SURFACE_NITROGEN = 0.79
 assert SURFACE_OXYGEN + SURFACE_NITROGEN == 1
 
 WV_PRESSURE = 0.0627
 
+class Gas:
+    def __init__(self, oxygen=21, helium=0, ppo2=1.4) -> None:
+        self.oxygen = oxygen/100
+        self.helium = helium/100
+        self.nitrogen = 1 - self.oxygen - self.helium
+        self.mod = self.get_mod(ppo2)
+        self.id = str(oxygen) + '/' + str(helium) + ' ' + str(ppo2)
+
+    def get_mod(self, ppo2):
+        return ppo2 / self.oxygen * 10 - 10
+
+air = Gas()
+air_tec = Gas(ppo2=1.2)
+eanx32 = Gas(oxygen=32)
+eanx32_tec = Gas(oxygen=32, ppo2=1.2)
+deco_eanx50 = Gas(oxygen=50, ppo2=1.6)
+deco_oxygen = Gas(oxygen=100, ppo2=1.6)
+trimix_21_35 = Gas(oxygen=21, helium=35, ppo2=1.2)
+trimix_18_45 = Gas(oxygen=18, helium=45, ppo2=1.2)
+trimix_15_55 = Gas(oxygen=15, helium=55, ppo2=1.2)
+trimix_12_65 = Gas(oxygen=12, helium=65, ppo2=1.2)
+
 class DiveProfileCheckpoint:
-    def __init__(self, time, depth, state=None, validation=None) -> None:
+    def __init__(self, time, depth, gas=air, state=None, validation=None) -> None:
         self.time = time
         self.depth = depth
+        self.gas = gas
         self.state = state
         self.validation = validation
 
@@ -43,12 +61,17 @@ class DiveProfile:
     def explode_checkpoints(self, checkpoints):
         assert checkpoints[0].time == 0
         assert checkpoints[0].depth == 0
+        for i in range(len(checkpoints)-1):
+            prev_ckpt = checkpoints[i]
+            next_ckpt = checkpoints[i+1]
+            assert prev_ckpt.time == int(prev_ckpt.time)
+            assert next_ckpt.time == int(next_ckpt.time)
+            assert prev_ckpt.time < next_ckpt.time
         self.profile = []
         for checkpoint in checkpoints:
             self.add_checkpoint(checkpoint)
     
     def delete_after(self, t):
-        # TODO optimisation for GetMeHome
         for i in reversed(range(len(self.profile))):
             if self.profile[i].time > t:
                 self.profile.pop()
@@ -68,7 +91,8 @@ class DiveProfile:
             else:
                 prop_prev = (time_to_process - prev_checkpoint.time) / (next_checkpoint.time - prev_checkpoint.time)
                 interpolated_depth = next_checkpoint.depth * prop_prev + prev_checkpoint.depth * (1-prop_prev)
-                new_checkpoint = DiveProfileCheckpoint(time=time_to_process, depth=interpolated_depth)
+                gas=prev_checkpoint.gas
+                new_checkpoint = DiveProfileCheckpoint(time=time_to_process, depth=interpolated_depth, gas=gas)
                 self.profile.append(new_checkpoint)
             time_to_process = time_to_process + 1
     
@@ -122,7 +146,7 @@ class BuhlmannCompartmentState:
                 ][0]
             self.update_ppn2(
                 compartment,
-                inhaled_ppn2=(1+(current_checkpoint.depth)/10 - WV_PRESSURE) * NITROGEN,
+                inhaled_ppn2=(1+(current_checkpoint.depth)/10 - WV_PRESSURE) * current_checkpoint.gas.nitrogen,
                 time_spent=current_checkpoint.time - previous_checkpoint.time,
                 prev_ppn2=prev_ppn2
             )
@@ -241,12 +265,15 @@ class Buhlmann_Z16C(DiveAlgorithm):
     def __validate_states__(self, dive_profile: DiveProfile) -> bool:
         for checkpoint in dive_profile:
             if not checkpoint.validation:
-                checkpoint.validation = all([compartment.ceiling <= checkpoint.depth for compartment in checkpoint.state])
+                ceilings_valid = all([compartment.ceiling <= checkpoint.depth for compartment in checkpoint.state])
+                mod_valid = checkpoint.depth <= checkpoint.gas.mod
+                checkpoint.validation = ceilings_valid and mod_valid
         return all([checkpoint.validation for checkpoint in dive_profile])
 
 def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     times = [checkpoint.time/60 for checkpoint in dive.profile]
-    depths = [-checkpoint.depth for checkpoint in dive.profile]
+    gas_ids = set([checkpoint.gas.id for checkpoint in dive.profile])
+    depths_by_gas = [(gas_id, [(-checkpoint.depth, checkpoint.time) for checkpoint in dive.profile if checkpoint.gas.id == gas_id]) for gas_id in gas_ids]
     checkpoints_not_allowed = [checkpoint for checkpoint in dive.profile if not checkpoint.validation]
     validation = len(checkpoints_not_allowed) == 0
     min_second_not_allowed = None if validation else int(checkpoints_not_allowed[0].time)
@@ -254,7 +281,12 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
 
     import matplotlib.pyplot as plt
     plt.tight_layout()
-    plt.plot(times, depths, label='depth')
+    for gas_depths_times in depths_by_gas:
+        gas_id = gas_depths_times[0]
+        gas_depths = [depth for depth,time in gas_depths_times[1]]
+        gas_times = [time/60 for depth,time in gas_depths_times[1]]
+
+        plt.plot(gas_times, gas_depths, label='depth, {}'.format(gas_id))
 
     for i in range(len(buhlmann.compartments)):
         compartment_ceiling = [-checkpoint.state[i].ceiling for checkpoint in dive.profile]
