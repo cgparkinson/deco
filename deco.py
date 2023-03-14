@@ -1,16 +1,6 @@
 from abc import ABC
 from typing import List, Sequence
 
-"""
-Assumptions:
-
-Only breathing air.
-Input is a list of tuples (time, depth)  - starting at (0,0) and ending at (T, 0) for T>0
-This will be converted to a second-by-second list of (time,depth)
-An algorithm will then run to generate (time,depth,compartment_1_ppN2)
-A second algorithm will compare (depth,compartment_1_ppN2) to the M-value at that depth
-"""
-
 SURFACE_OXYGEN = 0.21
 SURFACE_NITROGEN = 0.79
 assert SURFACE_OXYGEN + SURFACE_NITROGEN == 1
@@ -23,10 +13,14 @@ class Gas:
         self.helium = helium/100
         self.nitrogen = 1 - self.oxygen - self.helium
         self.mod = self.get_mod(ppo2)
+        self.min_od = self.get_min_od(ppo2)
         self.id = str(oxygen) + '/' + str(helium) + ' ' + str(ppo2)
 
     def get_mod(self, ppo2):
         return ppo2 / self.oxygen * 10 - 10
+    
+    def get_min_od(self, ppo2):
+        return 0.16 / self.oxygen * 10 - 10
 
 air = Gas()
 air_tec = Gas(ppo2=1.2)
@@ -137,20 +131,24 @@ class BuhlmannCompartmentState:
         previous_checkpoint: DiveProfileCheckpoint=None
     ) -> None:
         self.compartment = compartment
+        self.ndl=None
         if previous_checkpoint == None:
             self.ppn2 = (1 - WV_PRESSURE) * SURFACE_NITROGEN
             self.ceiling = self.calculate_ceiling(self.ppn2, compartment)
+            self.ndl = 99
         else:
             prev_ppn2 = [
                 bcs.ppn2 for bcs in previous_checkpoint.state if compartment == bcs.compartment  # note the object comparison
                 ][0]
+            inhaled_ppn2 = (1+(current_checkpoint.depth)/10 - WV_PRESSURE) * current_checkpoint.gas.nitrogen
             self.update_ppn2(
                 compartment,
-                inhaled_ppn2=(1+(current_checkpoint.depth)/10 - WV_PRESSURE) * current_checkpoint.gas.nitrogen,
+                inhaled_ppn2=inhaled_ppn2,
                 time_spent=current_checkpoint.time - previous_checkpoint.time,
                 prev_ppn2=prev_ppn2
             )
             self.ceiling = self.calculate_ceiling(self.ppn2, compartment)
+            self.ndl = self.calculate_ndl(self.ppn2, compartment, inhaled_ppn2)
     
     def update_ppn2(self,
         compartment: BuhlmannCompartment,
@@ -197,6 +195,57 @@ class BuhlmannCompartmentState:
             return 0
         else:
             return ceiling
+        
+    def calculate_ndl(self, ppn2, compartment, inhaled_ppn2):
+        import numpy as np
+        """
+        https://joorev.com/nitrox/
+
+        Following Erik C. Baker's paper on calculating NDLs, we have the following:
+
+        Definitions:
+        P = Final partial pressure in a given compartment
+        Pamb = Ambient pressure at depth
+        PH2O = water vapor pressure
+        FN2 = Nitrogen partial pressure at surface
+        Pi = Inspired pressure, e.g. ambient pressure minus water vapor pressure
+        Po = Initial compartment pressure
+        k = time constant (base 2) for the current tissue compartment
+        t = NDL for the current tissue compartment
+
+        We start with the basic Haldane equation:
+        P = Po + (Pi - Po)(1 - 2^-kt)
+
+        We rearrange the Haldane equation to solve for time, t:
+        (P - Po)/(Pi - Po) = 1 - 2^-kt
+        2^-kt = 1 - (P - Po)/(Pi - Po)
+
+        We simplify the equation:
+        2^-kt = (Pi - Po)/(Pi - Po) - (P - Po)/(Pi - Po)
+        2^-kt = (Pi - Po - P + Po)/(Pi - Po)
+        2^-kt = (Pi - P)/(Pi - Po)
+
+        We take the logarithm of both sides, to extract t (time):
+        log[2^-kt] = log[(Pi - P)/(Pi - Po)]
+        -kt*log(2) = log[(Pi - P)/(Pi - Po)]
+        t = (-1/(k*log2))*log[(Pi - P)/(Pi - Po)]
+
+        Lastly, we substitute the surfacing M-value, Mo, for the final pressure, P:
+        t = (-1/(k*log2))*log[(Pi - Mo)/(Pi - Po)]
+        """
+        # TODO DRY
+        surfacing_m_value=compartment.surfacing_m_value
+        m_value_slope = compartment.m_value_slope
+        gf=compartment.gf_hi  # TODO: is a gradient factor an attribute of a compartment?
+        # TODO fix gradient factors
+        surfacing_m_value_bar = surfacing_m_value/10 # body partial pressure limit for nitrogen
+        gf_prop = gf/100
+        adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
+        adjusted_surfacing_m_value_bar = (surfacing_m_value_bar - 1) * gf_prop + 1
+        if inhaled_ppn2 == ppn2:
+            return 99
+        ndl = (-compartment.half_time_min/(np.log(2)))*np.log((inhaled_ppn2 - adjusted_surfacing_m_value_bar)/(inhaled_ppn2 - ppn2))
+        return 99 if np.isnan(ndl) else ndl
 
     def __repr__(self) -> str:
         return "halftime is " + str(self.compartment) + " ppN2 is " + str(self.ppn2)
@@ -272,7 +321,8 @@ class Buhlmann_Z16C(DiveAlgorithm):
 
 def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     times = [checkpoint.time/60 for checkpoint in dive.profile]
-    gas_ids = set([checkpoint.gas.id for checkpoint in dive.profile])
+    gas_ids = list(set([checkpoint.gas.id for checkpoint in dive.profile]))
+    gas_ids.sort(key=lambda x: int(x.split(' ')[0].split('/')[0]))
     depths_by_gas = [(gas_id, [(-checkpoint.depth, checkpoint.time) for checkpoint in dive.profile if checkpoint.gas.id == gas_id]) for gas_id in gas_ids]
     checkpoints_not_allowed = [checkpoint for checkpoint in dive.profile if not checkpoint.validation]
     validation = len(checkpoints_not_allowed) == 0
@@ -294,6 +344,25 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
         # compartment_ppn2 = [checkpoint.state[i].ppn2 for checkpoint in dive.profile]
         # plt.plot(times, compartment_ppn2, label=str(buhlmann.compartments[i].half_time_min) + 'min')
     
+
+    plot_ndl = False
+    for checkpoint in dive.profile:
+        if checkpoint.time % 150 == 0:
+            ndl = min([int(compartment.ndl) for compartment in checkpoint.state])
+            if ndl > 0 and checkpoint.time > 0:
+                plt.annotate(ndl,
+                        xy=(checkpoint.time/60, 0), xycoords='data',
+                        xytext=(0, 0), textcoords='offset points',
+                        horizontalalignment='center', verticalalignment='bottom',
+                        fontsize=8)
+                plot_ndl = True
+    if plot_ndl:
+        plt.annotate("NDL:",
+                xy=(0, 0), xycoords='data',
+                xytext=(0, 0), textcoords='offset points',
+                horizontalalignment='center', verticalalignment='bottom',
+                fontsize=8)
+
     xcoords = range(int(min(times)), int(max(times)), 5)
     for xc in xcoords:
         plt.axvline(x=xc, color='gray', linestyle='dotted', linewidth='0.3')
