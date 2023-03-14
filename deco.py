@@ -1,5 +1,6 @@
 from abc import ABC
 from typing import List, Sequence
+import numpy as np
 
 SURFACE_OXYGEN = 0.21
 SURFACE_NITROGEN = 0.79
@@ -246,7 +247,9 @@ class BuhlmannCompartmentState:
             return 99
         ratio=(inhaled_ppn2 - adjusted_surfacing_m_value_bar)/(inhaled_ppn2 - ppn2)
         if ratio<=0:
-            return 0
+            return 99
+        if inhaled_ppn2 < ppn2:
+            return 99
         ndl = (-compartment.half_time_min/(np.log(2)))*np.log(ratio)
         return 99 if np.isnan(ndl) else ndl
 
@@ -328,6 +331,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     gas_ids = list(set([checkpoint.gas.id for checkpoint in dive.profile]))
     gas_ids.sort(key=lambda x: int(x.split(' ')[0].split('/')[0]))
     depths_by_gas = [(gas_id, [(-checkpoint.depth, checkpoint.time) for checkpoint in dive.profile if checkpoint.gas.id == gas_id]) for gas_id in gas_ids]
+    depths_by_gas.sort(key=lambda g: g[1][0][1])
     checkpoints_not_allowed = [checkpoint for checkpoint in dive.profile if not checkpoint.validation]
     validation = len(checkpoints_not_allowed) == 0
     min_second_not_allowed = None if validation else int(checkpoints_not_allowed[0].time)
@@ -337,9 +341,15 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     plt.tight_layout()
     for gas_depths_times in depths_by_gas:
         gas_id = gas_depths_times[0]
+        depths_times = gas_depths_times[1]
+        for i in range(len(depths_times)-1):
+            next_time = depths_times[-i][1]
+            prev_time = depths_times[-i-1][1]
+            if next_time - prev_time > 60:
+                depths_times.insert(-i, [np.nan, np.nan])
+
         gas_depths = [depth for depth,time in gas_depths_times[1]]
         gas_times = [time/60 for depth,time in gas_depths_times[1]]
-
         plt.plot(gas_times, gas_depths, label='depth, {}'.format(gas_id))
 
     for i in range(len(buhlmann.compartments)):
@@ -351,9 +361,14 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
 
     plot_ndl = False
     for checkpoint in dive.profile:
-        if checkpoint.time % 150 == 0:
-            ndl = min([int(compartment.ndl) for compartment in checkpoint.state])
-            if ndl > 0 and checkpoint.time > 0:
+        mark_ndl_every_mins = 2.5 if max(times)<80 else 5
+        if checkpoint.time % (mark_ndl_every_mins*60) == 0:
+            ndls = [int(compartment.ndl) for compartment in checkpoint.state]
+            # print(ndls)
+            ndl = min(ndls)
+            # print(ndl)
+            ceiling = max([compartment.ceiling for compartment in checkpoint.state])
+            if ndl > 0 and checkpoint.time > 0 and not ceiling:
                 plt.annotate(ndl,
                         xy=(checkpoint.time/60, 0), xycoords='data',
                         xytext=(0, 0), textcoords='offset points',

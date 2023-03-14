@@ -180,12 +180,18 @@ all_gases=[air_tec, eanx32, deco_eanx50, deco_oxygen, trimix_12_65, trimix_15_55
 rec_gases = [air, eanx32]
 dive_plan = [
     SwitchGas(gas=air),
-    ChangeDepth(depth=30, speed_mm=18, available_gases=[air]),
+    ChangeDepth(depth=27, speed_mm=18, available_gases=[air]),
+    MaintainDepth(time_min=3),
+    ChangeDepth(depth=25, speed_mm=4, available_gases=[air]),
+    MaintainDepth(time_min=4),
+    ChangeDepth(depth=22, time_min=2, available_gases=[air]),
     # SwitchGas(gas=trimix_12_65),
     # ChangeDepth(depth=65, speed_mm=18, available_gases=available_gases),
     # ChangeDepth(depth=55, available_gases=[air], speed_mm=18),
     # SwitchGas(gas=trimix_12_65),
-    MaintainDepth(time_min=40),
+    MaintainDepth(time_min=3),
+    ChangeDepth(depth=18, time_min=3, available_gases=[air]),
+    MaintainDepth(time_min=30),
     GetMeHome(algorithm=buhlmann, available_gases=[air])
     # SafetyStop(),
     # AscendDirectly()
