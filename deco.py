@@ -244,7 +244,10 @@ class BuhlmannCompartmentState:
         adjusted_surfacing_m_value_bar = (surfacing_m_value_bar - 1) * gf_prop + 1
         if inhaled_ppn2 == ppn2:
             return 99
-        ndl = (-compartment.half_time_min/(np.log(2)))*np.log((inhaled_ppn2 - adjusted_surfacing_m_value_bar)/(inhaled_ppn2 - ppn2))
+        ratio=(inhaled_ppn2 - adjusted_surfacing_m_value_bar)/(inhaled_ppn2 - ppn2)
+        if ratio<=0:
+            return 0
+        ndl = (-compartment.half_time_min/(np.log(2)))*np.log(ratio)
         return 99 if np.isnan(ndl) else ndl
 
     def __repr__(self) -> str:
