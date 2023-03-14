@@ -43,18 +43,25 @@ class ChangeDepth():
         prev_checkpoint = dive_checkpoints[-1]
         prev_time = prev_checkpoint.time
         prev_depth = prev_checkpoint.depth
-        if self.depth > prev_checkpoint.gas.mod:
-            final_gas = self.get_best_gas(self.available_gases, self.depth)  # TODO: allow time for gas switching
-        else:
-            final_gas = prev_checkpoint.gas
         if self.time_s:
             time = prev_time + self.time_s
         elif self.speed_ms:
             time = prev_time + abs(prev_depth - self.depth)/self.speed_ms
-        return [
-            DiveProfileCheckpoint(time=int(prev_time)+1, depth=prev_depth, gas=final_gas), # TODO
-            DiveProfileCheckpoint(time=int(time)+1, depth=self.depth, gas=final_gas)
-            ]
+        if self.depth > prev_checkpoint.gas.mod:
+            final_gas = self.get_best_gas(self.available_gases, self.depth)  # TODO: allow time for gas switching
+            # TODO: this only ever switches halfway through
+            intermediate_time = int((prev_time + time)/2)
+            intermediate_depth = int((prev_depth + self.depth)/2)
+            intermediate_gas = final_gas
+            return [
+                DiveProfileCheckpoint(time=int(prev_time)+1, depth=prev_depth, gas=prev_checkpoint.gas),
+                DiveProfileCheckpoint(time=intermediate_time, depth=intermediate_depth, gas=intermediate_gas),
+                DiveProfileCheckpoint(time=int(time)+1, depth=self.depth, gas=final_gas)
+                ]
+        else:
+            final_gas = prev_checkpoint.gas
+            return [DiveProfileCheckpoint(time=int(time)+1, depth=self.depth, gas=final_gas)]
+        
 
 class SwitchGas():
     def __init__(self, gas):
@@ -131,7 +138,7 @@ class GetMeHome():
 
     def get_new_checkpoints(self, dive_checkpoints):
         dive = DiveProfile(checkpoints=dive_checkpoints)
-        while dive_checkpoints[-1].depth > 0 and dive_checkpoints[-1].time < 60*60:
+        while dive_checkpoints[-1].depth > 0 and dive_checkpoints[-1].time < 60*60*10:
             prev_time = dive_checkpoints[-1].time
             prev_depth = dive_checkpoints[-1].depth
             prev_gas = dive_checkpoints[-1].gas
@@ -157,8 +164,8 @@ class GetMeHome():
         return []  # TODO: make this make sense. right now, it directly modifies the object it takes in
 
 
-def process_diveplan(dive_plan):
-    dive_checkpoints = [DiveProfileCheckpoint(time=0, depth=0)]
+def process_diveplan(dive_plan, initial_gas):
+    dive_checkpoints = [DiveProfileCheckpoint(time=0, depth=0, gas=initial_gas)]
     for i in range(len(dive_plan)):
         action = dive_plan[i]
         new_checkpoints = action.get_new_checkpoints(dive_checkpoints)
@@ -169,20 +176,22 @@ def process_diveplan(dive_plan):
     return dive_checkpoints
 
 buhlmann = Buhlmann_Z16C(gf=85)
-available_gases=[air_tec, deco_eanx50, deco_oxygen, trimix_12_65, trimix_15_55, trimix_18_45]
+all_gases=[air_tec, eanx32, deco_eanx50, deco_oxygen, trimix_12_65, trimix_15_55, trimix_18_45]
+rec_gases = [air, eanx32]
 dive_plan = [
-    ChangeDepth(depth=65, speed_mm=18, available_gases=available_gases),
+    SwitchGas(gas=air),
+    ChangeDepth(depth=30, speed_mm=18, available_gases=[air]),
     # SwitchGas(gas=trimix_12_65),
     # ChangeDepth(depth=65, speed_mm=18, available_gases=available_gases),
     # ChangeDepth(depth=55, available_gases=[air], speed_mm=18),
     # SwitchGas(gas=trimix_12_65),
-    MaintainDepth(time_min=20),
-    GetMeHome(algorithm=buhlmann, available_gases=available_gases)
+    MaintainDepth(time_min=40),
+    GetMeHome(algorithm=buhlmann, available_gases=[air])
     # SafetyStop(),
     # AscendDirectly()
 ]
 
-dive_checkpoints = process_diveplan(dive_plan)
+dive_checkpoints = process_diveplan(dive_plan, air)
 dive = DiveProfile(checkpoints=dive_checkpoints)
 buhlmann.process(dive)
 graph_buhlmann_dive_profile(dive, buhlmann)

@@ -316,7 +316,8 @@ class Buhlmann_Z16C(DiveAlgorithm):
             if not checkpoint.validation:
                 ceilings_valid = all([compartment.ceiling <= checkpoint.depth for compartment in checkpoint.state])
                 mod_valid = checkpoint.depth <= checkpoint.gas.mod
-                checkpoint.validation = ceilings_valid and mod_valid
+                min_od_valid = checkpoint.depth >= checkpoint.gas.min_od
+                checkpoint.validation = ceilings_valid and mod_valid and min_od_valid
         return all([checkpoint.validation for checkpoint in dive_profile])
 
 def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
