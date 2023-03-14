@@ -43,7 +43,7 @@ class ChangeDepth():
         prev_time = prev_checkpoint.time
         prev_depth = prev_checkpoint.depth
         if self.depth > prev_checkpoint.gas.mod:
-            gas = self.get_best_gas(self.available_gases, self.depth)
+            gas = self.get_best_gas(self.available_gases, self.depth)  # TODO: allow time for gas switching and FIXME doesnt work!!
         else:
             gas = prev_checkpoint.gas
         if self.time_s:
@@ -136,7 +136,7 @@ class GetMeHome():
                 new_time = prev_time + 20
             else:
                 new_time = int(prev_time)+1
-            new_gas = self.get_best_deco_gas(self.available_gases, new_depth)
+            new_gas = self.get_best_deco_gas(self.available_gases, new_depth)  # TODO: only switch gas during a stop
             new_dive_checkpoint = DiveProfileCheckpoint(time=new_time, depth = new_depth, gas=new_gas)
             dive_checkpoints.append(new_dive_checkpoint)
             dive.add_checkpoint(new_dive_checkpoint)
