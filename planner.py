@@ -10,6 +10,8 @@ trimix_21_35 = Gas(oxygen=21, helium=35, ppo2=1.2)
 trimix_18_45 = Gas(oxygen=18, helium=45, ppo2=1.2)
 trimix_15_55 = Gas(oxygen=15, helium=55, ppo2=1.2)
 trimix_12_65 = Gas(oxygen=12, helium=65, ppo2=1.2)
+all_gases=[air_tec, eanx32, deco_eanx50, deco_oxygen, trimix_12_65, trimix_15_55, trimix_18_45]
+rec_gases = [air, eanx32]
 
 class ChangeDepth():
     def __init__(self, depth, available_gases=None, time_min=None, time_s=None, speed_mm=9) -> None:
@@ -47,6 +49,8 @@ class ChangeDepth():
             time = prev_time + self.time_s
         elif self.speed_ms:
             time = prev_time + abs(prev_depth - self.depth)/self.speed_ms
+            if int(time) != time:
+                time = int(time) + 1
         if self.depth > prev_checkpoint.gas.mod:
             final_gas = self.get_best_gas(self.available_gases, self.depth)  # TODO: allow time for gas switching
             # TODO: this only ever switches halfway through
@@ -56,11 +60,11 @@ class ChangeDepth():
             return [
                 DiveProfileCheckpoint(time=int(prev_time)+1, depth=prev_depth, gas=prev_checkpoint.gas),
                 DiveProfileCheckpoint(time=intermediate_time, depth=intermediate_depth, gas=intermediate_gas),
-                DiveProfileCheckpoint(time=int(time)+1, depth=self.depth, gas=final_gas)
+                DiveProfileCheckpoint(time=time, depth=self.depth, gas=final_gas)
                 ]
         else:
             final_gas = prev_checkpoint.gas
-            return [DiveProfileCheckpoint(time=int(time)+1, depth=self.depth, gas=final_gas)]
+            return [DiveProfileCheckpoint(time=time, depth=self.depth, gas=final_gas)]
         
 
 class SwitchGas():
@@ -176,8 +180,7 @@ def process_diveplan(dive_plan, initial_gas):
     return dive_checkpoints
 
 buhlmann = Buhlmann_Z16C(gf=85)
-all_gases=[air_tec, eanx32, deco_eanx50, deco_oxygen, trimix_12_65, trimix_15_55, trimix_18_45]
-rec_gases = [air, eanx32]
+
 # dive_plan = [
 #     SwitchGas(gas=air),
 #     ChangeDepth(depth=27, speed_mm=18, available_gases=[air]),
@@ -198,9 +201,9 @@ rec_gases = [air, eanx32]
 # ]
 
 def make_dive_actions_from_list(l, s=20):
-    return [[ChangeDepth(depth=d, time_s=s) for d in l], AscendDirectly()]
+    return [*[ChangeDepth(depth=d, time_s=s) for d in l], AscendDirectly()]
 
-depth_list = [
+simons_reef = [
     5.2,9.2,12.6,14.9,15.5,16.6,16.6,16.9,18.4,19.3,20,22.3,24.9,26.4,26.3,27,27.6,29,
     29.4,29.5,29.8,29.2,29,28.9,28.4,27.8,26.6,26.6,26.6,26.6,26.8,26.6,26.5,26.2,25.7,
     26.8,27,27.1,27.7,27.9,27.3,27.7,28.5,28.2,26.8,26.7,26,25.2,24.2,23.3,22.9,22.3,
@@ -209,7 +212,19 @@ depth_list = [
     14.4,14.3,14.6,14.9,14.2,11.9,9.6,7.1,6.5,6.6,5.9,5.7,5.2,4.6,6,6.1,5.1,5.6,5.8,
     4.4,3.2,2.4
 ]
-dive_plan = make_dive_actions_from_list(depth_list)
+
+rashi_halik = [
+    4.4,6.8,11.4,15.6,20.6,25.6,29.4,31.1,30,29.2,28.6,28.2,27.5,27,26.8,26.3,25.1,
+    24.7,24.4,23.5,24,24.4,24.7,26.3,26.6,26.4,25.4,25.2,26,27.3,28,28.3,28.6,28.7,
+    28.7,27.7,27.2,26.5,26.8,26.8,26.4,26,25.9,25.4,26.2,26.6,26.6,26.8,26.3,26.7,
+    26.5,26.3,25.8,25.8,26.2,25.6,25.3,25.5,26.2,26.9,26.8,26.7,25.4,26.1,26.1,25.6,
+    25,24.6,23.8,23.7,22.4,20.8,19.1,18,16.6,14.9,13.5,14,14.1,14.5,14.4,14.3,14.9,
+    15.3,15.5,15,14.7,14.4,14.5,14.8,15,15.1,14.6,14.5,14.3,13.8,13.7,13.6,13.2,13,
+    13.3,13.4,13.6,13.8,14.2,14.3,14.2,14.6,14,13.4,13.1,12.6,12.8,13.1,13.2,13.7,
+    13.5,13.3,13.2,12.3,11.8,10.9,8.5,7,6.5,6.6,6.5,6.3,6.3,5.7,5.7,5.6,5.5,5.3,5.4,
+    5.9,5.5,5.6,5.3,5.1,5.4,4.8,4,3.6,2.8
+]
+dive_plan = make_dive_actions_from_list(rashi_halik)
 
 dive_checkpoints = process_diveplan(dive_plan, air)
 dive = DiveProfile(checkpoints=dive_checkpoints)
