@@ -12,7 +12,7 @@ trimix_15_55 = Gas(oxygen=15, helium=55, ppo2=1.2)
 trimix_12_65 = Gas(oxygen=12, helium=65, ppo2=1.2)
 
 class ChangeDepth():
-    def __init__(self, depth, available_gases, time_min=None, time_s=None, speed_mm=9) -> None:
+    def __init__(self, depth, available_gases=None, time_min=None, time_s=None, speed_mm=9) -> None:
         self.depth = depth
         if time_min:
             self.time_s = time_min*60
@@ -97,8 +97,8 @@ class SafetyStop():
     def get_new_checkpoints(self, dive_checkpoints):
         prev_checkpoint = dive_checkpoints[-1]
         checkpoint_1 = ChangeDepth(self.depth, speed_mm=self.speed_ms*60).get_new_checkpoints(dive_checkpoints)
-        checkpoint_2 = MaintainDepth(time_s=self.time_s).get_new_checkpoints([*dive_checkpoints, checkpoint_1])
-        return [checkpoint_1, checkpoint_2]
+        checkpoint_2 = MaintainDepth(time_s=self.time_s).get_new_checkpoints([*dive_checkpoints, *checkpoint_1])
+        return [*checkpoint_1, checkpoint_2]
     
 class AscendDirectly():
     def __init__(self, time_min=None, time_s=None, speed_mm=9) -> None:
@@ -114,7 +114,7 @@ class AscendDirectly():
     
     def get_new_checkpoints(self, dive_checkpoints):
         prev_checkpoint = dive_checkpoints[-1]
-        return ChangeDepth(depth=0, time_s=self.time_s, speed_mm=self.speed_ms*60).get_new_checkpoint(dive_checkpoints)
+        return ChangeDepth(depth=0, time_s=self.time_s, speed_mm=self.speed_ms*60).get_new_checkpoints(dive_checkpoints)
 
 class GetMeHome():
     def __init__(self, algorithm, available_gases=[air]) -> None:
@@ -178,24 +178,38 @@ def process_diveplan(dive_plan, initial_gas):
 buhlmann = Buhlmann_Z16C(gf=85)
 all_gases=[air_tec, eanx32, deco_eanx50, deco_oxygen, trimix_12_65, trimix_15_55, trimix_18_45]
 rec_gases = [air, eanx32]
-dive_plan = [
-    SwitchGas(gas=air),
-    ChangeDepth(depth=27, speed_mm=18, available_gases=[air]),
-    MaintainDepth(time_min=3),
-    ChangeDepth(depth=25, speed_mm=4, available_gases=[air]),
-    MaintainDepth(time_min=4),
-    ChangeDepth(depth=22, time_min=2, available_gases=[air]),
-    # SwitchGas(gas=trimix_12_65),
-    # ChangeDepth(depth=65, speed_mm=18, available_gases=available_gases),
-    # ChangeDepth(depth=55, available_gases=[air], speed_mm=18),
-    # SwitchGas(gas=trimix_12_65),
-    MaintainDepth(time_min=3),
-    ChangeDepth(depth=18, time_min=3, available_gases=[air]),
-    MaintainDepth(time_min=30),
-    GetMeHome(algorithm=buhlmann, available_gases=[air])
-    # SafetyStop(),
-    # AscendDirectly()
+# dive_plan = [
+#     SwitchGas(gas=air),
+#     ChangeDepth(depth=27, speed_mm=18, available_gases=[air]),
+#     MaintainDepth(time_min=3),
+#     ChangeDepth(depth=25, speed_mm=4, available_gases=[air]),
+#     MaintainDepth(time_min=4),
+#     ChangeDepth(depth=22, time_min=2, available_gases=[air]),
+#     # SwitchGas(gas=trimix_12_65),
+#     # ChangeDepth(depth=65, speed_mm=18, available_gases=available_gases),
+#     # ChangeDepth(depth=55, available_gases=[air], speed_mm=18),
+#     # SwitchGas(gas=trimix_12_65),
+#     MaintainDepth(time_min=28),
+#     # ChangeDepth(depth=18, time_min=3, available_gases=[air]),
+#     # MaintainDepth(time_min=29),
+#     # GetMeHome(algorithm=buhlmann, available_gases=[air])
+#     SafetyStop(),
+#     AscendDirectly()
+# ]
+
+def make_dive_actions_from_list(l, s=20):
+    return [[ChangeDepth(depth=d, time_s=s) for d in l], AscendDirectly()]
+
+depth_list = [
+    5.2,9.2,12.6,14.9,15.5,16.6,16.6,16.9,18.4,19.3,20,22.3,24.9,26.4,26.3,27,27.6,29,
+    29.4,29.5,29.8,29.2,29,28.9,28.4,27.8,26.6,26.6,26.6,26.6,26.8,26.6,26.5,26.2,25.7,
+    26.8,27,27.1,27.7,27.9,27.3,27.7,28.5,28.2,26.8,26.7,26,25.2,24.2,23.3,22.9,22.3,
+    22.2,21.9,21.8,21.7,21.2,21.9,22.3,23,23.4,23,23.2,23.8,23.6,23,23,22.8,23.1,23.2,
+    23.2,23.1,23,21.7,20.8,20.1,19.6,19.4,19.6,19.3,19.1,18,17.9,17.2,15.3,15.3,14.6,
+    14.4,14.3,14.6,14.9,14.2,11.9,9.6,7.1,6.5,6.6,5.9,5.7,5.2,4.6,6,6.1,5.1,5.6,5.8,
+    4.4,3.2,2.4
 ]
+dive_plan = make_dive_actions_from_list(depth_list)
 
 dive_checkpoints = process_diveplan(dive_plan, air)
 dive = DiveProfile(checkpoints=dive_checkpoints)

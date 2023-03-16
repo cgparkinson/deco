@@ -244,14 +244,18 @@ class BuhlmannCompartmentState:
         adjusted_m_value_slope = m_value_slope*(gf_prop) + (1-gf_prop)  # weighted average of M-value slope and equilibrium
         adjusted_surfacing_m_value_bar = (surfacing_m_value_bar - 1) * gf_prop + 1
         if inhaled_ppn2 == ppn2:
-            return 99
+            # equilibrium, NDL infinite
+            return 999
+        if inhaled_ppn2 < ppn2:
+            # off gassing, NDL infinite
+            return 999
         ratio=(inhaled_ppn2 - adjusted_surfacing_m_value_bar)/(inhaled_ppn2 - ppn2)
         if ratio<=0:
-            return 99
-        if inhaled_ppn2 < ppn2:
-            return 99
+            # m_value > inhaled but ppn2 < inhaled. So on gassing but never hit m-value, NDL infinite
+            return 999
         ndl = (-compartment.half_time_min/(np.log(2)))*np.log(ratio)
-        return 99 if np.isnan(ndl) else ndl
+        # return 99 if np.isnan(ndl) else ndl
+        return ndl
 
     def __repr__(self) -> str:
         return "halftime is " + str(self.compartment) + " ppN2 is " + str(self.ppn2)
@@ -368,8 +372,15 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
             ndl = min(ndls)
             # print(ndl)
             ceiling = max([compartment.ceiling for compartment in checkpoint.state])
-            if ndl > 0 and checkpoint.time > 0 and not ceiling:
+            if ndl >= 0 and ndl < 100 and checkpoint.time > 0 and not ceiling:
                 plt.annotate(ndl,
+                        xy=(checkpoint.time/60, 0), xycoords='data',
+                        xytext=(0, 0), textcoords='offset points',
+                        horizontalalignment='center', verticalalignment='bottom',
+                        fontsize=8)
+                plot_ndl = True
+            elif ceiling:
+                plt.annotate('X',
                         xy=(checkpoint.time/60, 0), xycoords='data',
                         xytext=(0, 0), textcoords='offset points',
                         horizontalalignment='center', verticalalignment='bottom',
