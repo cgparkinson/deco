@@ -4,14 +4,22 @@ air = Gas()
 air_tec = Gas(ppo2=1.2)
 eanx32 = Gas(oxygen=32)
 eanx32_tec = Gas(oxygen=32, ppo2=1.2)
+eanx36 = Gas(oxygen=36)
+eanx36_tec = Gas(oxygen=36, ppo2=1.2)
 deco_eanx50 = Gas(oxygen=50, ppo2=1.6)
 deco_oxygen = Gas(oxygen=100, ppo2=1.6)
+deco_trimix_35_25 = Gas(oxygen=35, helium=25, ppo2=1.6)
+deco_trimix_21_35 = Gas(oxygen=21, helium=35, ppo2=1.6)
 trimix_21_35 = Gas(oxygen=21, helium=35, ppo2=1.2)
 trimix_18_45 = Gas(oxygen=18, helium=45, ppo2=1.2)
 trimix_15_55 = Gas(oxygen=15, helium=55, ppo2=1.2)
 trimix_12_65 = Gas(oxygen=12, helium=65, ppo2=1.2)
-all_gases=[air_tec, eanx32, deco_eanx50, deco_oxygen, trimix_12_65, trimix_15_55, trimix_18_45]
+trimix_10_70 = Gas(oxygen=10, helium=70, ppo2=1.2)
+
 rec_gases = [air, eanx32]
+tec_bottom_gases=[air_tec, eanx32_tec, eanx36_tec, trimix_21_35, trimix_18_45, trimix_15_55, trimix_12_65, trimix_10_70]
+deco_gases = [deco_eanx50, deco_oxygen, deco_trimix_35_25, deco_trimix_21_35]
+all_gases = tec_bottom_gases + deco_gases + rec_gases
 
 class ChangeDepth():
     def __init__(self, depth, available_gases=None, time_min=None, time_s=None, speed_mm=9) -> None:
@@ -51,7 +59,7 @@ class ChangeDepth():
             time = prev_time + abs(prev_depth - self.depth)/self.speed_ms
             if int(time) != time:
                 time = int(time) + 1
-        if self.depth > prev_checkpoint.gas.mod:
+        if self.depth > prev_checkpoint.gas.mod and self.available_gases:
             final_gas = self.get_best_gas(self.available_gases, self.depth)  # TODO: allow time for gas switching
             # TODO: this only ever switches halfway through
             intermediate_time = int((prev_time + time)/2)
@@ -142,7 +150,12 @@ class GetMeHome():
 
     def get_new_checkpoints(self, dive_checkpoints):
         dive = DiveProfile(checkpoints=dive_checkpoints)
+        count = 0
         while dive_checkpoints[-1].depth > 0 and dive_checkpoints[-1].time < 60*60*10:
+            if count % 100 == 0:
+                valid = self.algorithm.process(dive)
+                if not valid:
+                    raise Exception("Dive invalid at minute {}".format(dive_checkpoints[-1].time / 60))
             prev_time = dive_checkpoints[-1].time
             prev_depth = dive_checkpoints[-1].depth
             prev_gas = dive_checkpoints[-1].gas
@@ -165,6 +178,7 @@ class GetMeHome():
                 dive_checkpoints.append(new_dive_checkpoint)
                 dive.delete_after(prev_time)
                 dive.add_checkpoint(new_dive_checkpoint)
+            count = count + 1
         return []  # TODO: make this make sense. right now, it directly modifies the object it takes in
 
 
@@ -179,29 +193,29 @@ def process_diveplan(dive_plan, initial_gas):
             dive_checkpoints.append(new_checkpoints)
     return dive_checkpoints
 
-buhlmann = Buhlmann_Z16C(gf=85)
+buhlmann = Buhlmann_Z16C(gf=100)
 
 # dive_plan = [
 #     SwitchGas(gas=air),
-#     ChangeDepth(depth=27, speed_mm=18, available_gases=[air]),
-#     MaintainDepth(time_min=3),
-#     ChangeDepth(depth=25, speed_mm=4, available_gases=[air]),
-#     MaintainDepth(time_min=4),
-#     ChangeDepth(depth=22, time_min=2, available_gases=[air]),
+#     ChangeDepth(depth=45, speed_mm=18, available_gases=[air]),
+#     MaintainDepth(time_min=16),
+#     # ChangeDepth(depth=25, speed_mm=4, available_gases=[air]),
+#     # MaintainDepth(time_min=4),
+#     # ChangeDepth(depth=22, time_min=2, available_gases=[air]),
 #     # SwitchGas(gas=trimix_12_65),
 #     # ChangeDepth(depth=65, speed_mm=18, available_gases=available_gases),
 #     # ChangeDepth(depth=55, available_gases=[air], speed_mm=18),
 #     # SwitchGas(gas=trimix_12_65),
-#     MaintainDepth(time_min=28),
+#     # MaintainDepth(time_min=28),
 #     # ChangeDepth(depth=18, time_min=3, available_gases=[air]),
 #     # MaintainDepth(time_min=29),
-#     # GetMeHome(algorithm=buhlmann, available_gases=[air])
-#     SafetyStop(),
-#     AscendDirectly()
+#     GetMeHome(algorithm=buhlmann, available_gases=[air])
+#     # SafetyStop(),
+#     # AscendDirectly()
 # ]
 
 def make_dive_actions_from_list(l, s=20):
-    return [*[ChangeDepth(depth=d, time_s=s) for d in l], AscendDirectly()]
+    return [*[ChangeDepth(depth=d, time_s=s, available_gases=tec_bottom_gases) for d in l], GetMeHome(algorithm=buhlmann, available_gases=tec_bottom_gases + deco_gases)]
 
 simons_reef = [
     5.2,9.2,12.6,14.9,15.5,16.6,16.6,16.9,18.4,19.3,20,22.3,24.9,26.4,26.3,27,27.6,29,
