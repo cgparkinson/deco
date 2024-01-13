@@ -240,6 +240,12 @@ rashi_halik = [
 ]
 dive_plan = make_dive_actions_from_list(rashi_halik)
 
+def make_dive_graph_from_command_list(command_list):
+    dive_checkpoints = process_diveplan(dive_plan, air)
+    dive = DiveProfile(checkpoints=dive_checkpoints)
+    buhlmann.process(dive)
+    return graph_buhlmann_dive_profile(dive, buhlmann)
+
 dive_checkpoints = process_diveplan(dive_plan, air)
 dive = DiveProfile(checkpoints=dive_checkpoints)
 buhlmann.process(dive)

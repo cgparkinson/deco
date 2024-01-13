@@ -408,3 +408,4 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
     plt.legend(bbox_to_anchor=(1.04, 1), borderaxespad=0)
 
     plt.savefig('deco.png',bbox_inches="tight")
+    return plt
