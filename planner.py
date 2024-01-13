@@ -241,10 +241,27 @@ rashi_halik = [
 dive_plan = make_dive_actions_from_list(rashi_halik)
 
 def make_dive_graph_from_command_list(command_list):
+    chatbot_algo = Buhlmann_Z16C(gf=85)
+
+    command_list = command_list.split('\n')
+    dive_plan = []
+    for i in range(len(command_list)):
+        line = command_list[i]
+        if line.startswith("CHANGE DEPTH TO "):
+            line = line.replace("CHANGE DEPTH TO ", "").replace(",", "")
+            depth = int(line.split(" ")[0])
+            # TODO: speed
+            dive_plan.append(ChangeDepth(depth=depth))
+        if line.startswith("CONSTANT DEPTH "):
+            line = line.replace("CONSTANT DEPTH ", "").replace(",", "")
+            time = int(line.split(" ")[0])
+            dive_plan.append(MaintainDepth(time_min=time))
+
+    dive_plan.append(GetMeHome(algorithm=chatbot_algo, available_gases=[air]))
     dive_checkpoints = process_diveplan(dive_plan, air)
     dive = DiveProfile(checkpoints=dive_checkpoints)
-    buhlmann.process(dive)
-    return graph_buhlmann_dive_profile(dive, buhlmann)
+    chatbot_algo.process(dive)
+    return graph_buhlmann_dive_profile(dive, chatbot_algo, simple=True)
 
 dive_checkpoints = process_diveplan(dive_plan, air)
 dive = DiveProfile(checkpoints=dive_checkpoints)

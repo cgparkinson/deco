@@ -330,7 +330,7 @@ class Buhlmann_Z16C(DiveAlgorithm):
                 checkpoint.validation = ceilings_valid and mod_valid and min_od_valid
         return all([checkpoint.validation for checkpoint in dive_profile])
 
-def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
+def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C, simple=False):
     times = [checkpoint.time/60 for checkpoint in dive.profile]
     gas_ids = list(set([checkpoint.gas.id for checkpoint in dive.profile]))
     gas_ids.sort(key=lambda x: int(x.split(' ')[0].split('/')[0]))
@@ -343,6 +343,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
 
     import matplotlib.pyplot as plt
     plt.tight_layout()
+    plt.clf()
     for gas_depths_times in depths_by_gas:
         gas_id = gas_depths_times[0]
         depths_times = gas_depths_times[1]
@@ -398,14 +399,18 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C):
         plt.axvline(x=xc, color='gray', linestyle='dotted', linewidth='0.3')
     plt.xlabel('time (min)')
     plt.ylabel('depth (m)')
-    plt.title(
-        'GF {gf_lo}/{gf_hi} Buhlmann ZHL-16C ceilings by compartment\n'.format(gf_lo=buhlmann.gf_lo, gf_hi=buhlmann.gf_hi)
+    if simple:
+        title = 'Dive is {} [DO NOT TRUST THIS PLANNER!]'.format('permissible, {} min'.format(str(int(max(times)))) if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)) \
+            + 'GF {gf_lo}/{gf_hi} '.format(gf_lo=buhlmann.gf_lo, gf_hi=buhlmann.gf_hi)
+    else:
+        title = 'GF {gf_lo}/{gf_hi} Buhlmann ZHL-16C ceilings by compartment\n'.format(gf_lo=buhlmann.gf_lo, gf_hi=buhlmann.gf_hi) \
         + 'Dive is {} [DO NOT TRUST THIS PLANNER!]'.format(
             'permissible, {} min'.format(str(int(max(times)))) if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)
             )
-        )
+    plt.title(title)
 
-    plt.legend(bbox_to_anchor=(1.04, 1), borderaxespad=0)
+    if not simple:
+        plt.legend(bbox_to_anchor=(1.04, 1), borderaxespad=0)
 
     plt.savefig('deco.png',bbox_inches="tight")
     return plt
