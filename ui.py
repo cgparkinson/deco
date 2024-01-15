@@ -180,7 +180,7 @@ if prompt := st.chat_input("What is up?"):
         for chunk in replicate.stream(
             # The mistralai/mistral-7b-instruct-v0.2 model can stream output as it's running.
             # "mistralai/mistral-7b-instruct-v0.2",
-            "meta/llama-2-13b-chat",
+            "meta/llama-2-70b-chat",
             input={
                 "prompt": format_message_history_for_prompt([first_prompt] + st.session_state.messages),
                 "max_new_tokens": 256
@@ -204,6 +204,7 @@ if prompt := st.chat_input("What is up?"):
         text1_position.markdown(text1)
         text2 = response_in_progress
         text2_position.markdown(text2)
-        graph_position.pyplot(graph)
+        if graph:
+            graph_position.pyplot(graph)
         # Add assistant response to chat history
         st.session_state.messages.append(DivePlanMessage(text1=text1, text2=text2, graph=graph, graph_as_text = graph_as_text, bot=True))

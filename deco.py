@@ -357,11 +357,18 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C, simp
         gas_times = [time/60 for depth,time in gas_depths_times[1]]
         plt.plot(gas_times, gas_depths, label='depth, {}'.format(gas_id))
 
-    for i in range(len(buhlmann.compartments)):
-        compartment_ceiling = [-checkpoint.state[i].ceiling for checkpoint in dive.profile]
-        plt.plot(times, compartment_ceiling, label=str(buhlmann.compartments[i].half_time_min) + 'min')
-        # compartment_ppn2 = [checkpoint.state[i].ppn2 for checkpoint in dive.profile]
-        # plt.plot(times, compartment_ppn2, label=str(buhlmann.compartments[i].half_time_min) + 'min')
+    if simple:
+        lowest_ceiling =  [0 for checkpoint in dive.profile]
+        for i in range(len(buhlmann.compartments)):
+            compartment_ceiling = [-checkpoint.state[i].ceiling for checkpoint in dive.profile]
+            lowest_ceiling = [min(els) for els in zip(lowest_ceiling, compartment_ceiling)]
+        plt.plot(times, lowest_ceiling, label='deco ceiling')
+    else:
+        for i in range(len(buhlmann.compartments)):
+            compartment_ceiling = [-checkpoint.state[i].ceiling for checkpoint in dive.profile]
+            plt.plot(times, compartment_ceiling, label=str(buhlmann.compartments[i].half_time_min) + 'min')
+            # compartment_ppn2 = [checkpoint.state[i].ppn2 for checkpoint in dive.profile]
+            # plt.plot(times, compartment_ppn2, label=str(buhlmann.compartments[i].half_time_min) + 'min')
     
 
     plot_ndl = False
@@ -400,7 +407,7 @@ def graph_buhlmann_dive_profile(dive: DiveProfile, buhlmann: Buhlmann_Z16C, simp
     plt.xlabel('time (min)')
     plt.ylabel('depth (m)')
     if simple:
-        title = 'Dive is {} [DO NOT TRUST THIS PLANNER!]'.format('permissible, {} min'.format(str(int(max(times)))) if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)) \
+        title = '(Caution: Beta software) Dive {} '.format('valid, {} min'.format(str(int(max(times)))) if validation else 'not permissible from minute {}'.format(min_minute_not_allowed)) \
             + 'GF {gf_lo}/{gf_hi} '.format(gf_lo=buhlmann.gf_lo, gf_hi=buhlmann.gf_hi)
     else:
         title = 'GF {gf_lo}/{gf_hi} Buhlmann ZHL-16C ceilings by compartment\n'.format(gf_lo=buhlmann.gf_lo, gf_hi=buhlmann.gf_hi) \
